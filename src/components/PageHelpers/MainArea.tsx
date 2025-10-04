@@ -1,7 +1,7 @@
-import Notes from "./Types/Notes";
-import Files from "./Types/Files";
-import Images from "./Types/Images";
-import Codes from "./Types/Codes";
+import Notes from "../Main/Notes";
+import Files from "../Main/Files";
+import Images from "../Main/Images";
+import Codes from "../Main/Codes";
 
 type MainAreaProps = {
   section: string;

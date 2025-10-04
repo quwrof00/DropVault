@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuthUser } from "../hooks/useAuthUser";
+import { useAuthUser } from "../../hooks/useAuthUser";
 
 export type RoomFormData = {
   name: string;

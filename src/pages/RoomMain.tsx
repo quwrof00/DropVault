@@ -1,5 +1,5 @@
-import Sidebar from "../components/Sidebar";
-import MainArea from "../components/MainArea";
+import Sidebar from "../components/Bars/Sidebar";
+import MainArea from "../components/PageHelpers/MainArea";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 

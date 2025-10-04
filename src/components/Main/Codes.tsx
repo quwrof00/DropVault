@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { supabase } from "../../lib/supabase-client";
-import SubSidebar from "../SubSidebar";
+import SubSidebar from "../PageHelpers/SubSidebar";
 import CodeEditor from "@uiw/react-textarea-code-editor";
-import Compiler from "../Compiler";
+import Compiler from "../Compiler/Compiler";
 
 const languages = [
   { label: "C", value: "c" },

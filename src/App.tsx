@@ -3,10 +3,10 @@ import RegisterPage from "./pages/auth/register";
 import LoginPage from "./pages/auth/login";
 import HomePage from "./pages/Home";
 import RoomsPage from "./pages/RoomsPage";
-import { Navbar } from "./components/Navbar";
+import { Navbar } from "./components/Bars/Navbar";
 import RoomMain from "./pages/RoomMain";
 import Main from "./pages/Main";
-import Footer from "./components/Footer";
+import Footer from "./components/Bars/Footer";
 import { ToastContainer } from "react-toastify";
 import Dashboard from "./pages/Dashboard";
 

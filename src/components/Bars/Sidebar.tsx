@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "../lib/supabase-client";
+import { supabase } from "../../lib/supabase-client";
 
 type User = {
   id: string;
