@@ -1,17 +1,27 @@
-import React, { useState } from "react";
-import { Menu, Plus, Search, Pencil, Trash2 } from "lucide-react"; // optional: use any icons
+import React, { useState, useMemo } from "react";
+import { Menu, Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus } from "lucide-react";
 
 interface SidebarProps {
   search: string;
   setSearch: (value: string) => void;
-  items: string[];
+  items: string[]; // Can include paths like "Work/Notes" or just "Notes"
   onCreate: () => void;
+  onCreateFolder?: () => void; // Optional folder creation
   onSelect: (name: string) => void;
   onRename: (name: string) => void;
   onDelete: (name: string) => void;
   currentItem: string;
-  typeLabel: string; // e.g., "Note", "Snippet"
-  isCreating: boolean
+  typeLabel: string;
+  isCreating: boolean;
+  currentFolder?: string; // Track current folder context
+  onFolderChange?: (folder: string) => void; // Navigate into folder
+}
+
+interface TreeNode {
+  name: string;
+  fullPath: string;
+  type: 'file' | 'folder';
+  children?: TreeNode[];
 }
 
 const SubSidebar: React.FC<SidebarProps> = ({
@@ -19,13 +29,225 @@ const SubSidebar: React.FC<SidebarProps> = ({
   setSearch,
   items,
   onCreate,
+  onCreateFolder,
   onSelect,
   onRename,
   onDelete,
   currentItem,
   typeLabel,
+  isCreating,
+  currentFolder = "",
+  onFolderChange,
 }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+
+  // Build tree structure from flat list of paths
+  const treeStructure = useMemo(() => {
+    const root: TreeNode[] = [];
+    const folderMap = new Map<string, TreeNode>();
+
+    // Filter items by search
+    const filteredItems = items.filter(item => 
+      item.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Sort items to ensure folders come before files
+    const sortedItems = [...filteredItems].sort((a, b) => {
+      const aParts = a.split('/');
+      const bParts = b.split('/');
+      
+      // Compare each level
+      for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+        if (aParts[i] !== bParts[i]) {
+          return aParts[i].localeCompare(bParts[i]);
+        }
+      }
+      
+      return aParts.length - bParts.length;
+    });
+
+    sortedItems.forEach(item => {
+      const parts = item.split('/');
+      
+      if (parts.length === 1) {
+        // Root level file
+        root.push({
+          name: parts[0],
+          fullPath: item,
+          type: 'file'
+        });
+      } else {
+        // Nested file - create folder structure
+        let currentPath = '';
+        
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          const parentPath = currentPath;
+          currentPath = currentPath ? `${currentPath}/${part}` : part;
+          
+          if (!folderMap.has(currentPath)) {
+            const folderNode: TreeNode = {
+              name: part,
+              fullPath: currentPath,
+              type: 'folder',
+              children: []
+            };
+            
+            folderMap.set(currentPath, folderNode);
+            
+            if (parentPath) {
+              const parent = folderMap.get(parentPath);
+              parent?.children?.push(folderNode);
+            } else {
+              root.push(folderNode);
+            }
+          }
+        }
+        
+        // Add the file to its parent folder
+        const parentPath = parts.slice(0, -1).join('/');
+        const fileNode: TreeNode = {
+          name: parts[parts.length - 1],
+          fullPath: item,
+          type: 'file'
+        };
+        
+        if (parentPath) {
+          const parent = folderMap.get(parentPath);
+          parent?.children?.push(fileNode);
+        } else {
+          root.push(fileNode);
+        }
+      }
+    });
+
+    return root;
+  }, [items, search]);
+
+  const toggleFolder = (folderPath: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderPath)) {
+        next.delete(folderPath);
+      } else {
+        next.add(folderPath);
+      }
+      return next;
+    });
+  };
+
+  const renderTreeNode = (node: TreeNode, depth: number = 0) => {
+    const isExpanded = expandedFolders.has(node.fullPath);
+    const isSelected = node.fullPath === currentItem;
+    const paddingLeft = depth * 12 + 8;
+
+    if (node.type === 'folder') {
+      return (
+        <div key={node.fullPath}>
+          <div
+            className="flex items-center justify-between hover:bg-gray-600 rounded-md px-2 py-2 group transition-all cursor-pointer"
+            style={{ paddingLeft: `${paddingLeft}px` }}
+          >
+            <div 
+              className="flex items-center gap-2 flex-1 min-w-0"
+              onClick={() => toggleFolder(node.fullPath)}
+            >
+              {isExpanded ? (
+                <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+              ) : (
+                <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />
+              )}
+              <Folder size={14} className="text-yellow-500 flex-shrink-0" />
+              <span className="truncate text-sm text-gray-200" title={node.name}>
+                {node.name}
+              </span>
+            </div>
+            
+            {isOpen && (
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRename(node.fullPath);
+                  }}
+                  className="text-yellow-500 hover:text-yellow-400"
+                  title="Rename folder"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(node.fullPath);
+                  }}
+                  className="text-red-500 hover:text-red-400"
+                  title="Delete folder"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {isExpanded && node.children && (
+            <div>
+              {node.children.map(child => renderTreeNode(child, depth + 1))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // File node
+    return (
+      <div
+        key={node.fullPath}
+        className={`flex items-center justify-between hover:bg-gray-600 rounded-md px-2 py-2 group transition-all cursor-pointer ${
+          isSelected ? 'bg-blue-900' : ''
+        }`}
+        style={{ paddingLeft: `${paddingLeft}px` }}
+        onClick={() => onSelect(node.fullPath)}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <File size={14} className="text-blue-400 flex-shrink-0" />
+          <span
+            className={`truncate text-sm ${
+              isSelected ? 'text-blue-300 font-medium' : 'text-gray-200'
+            }`}
+            title={node.name}
+          >
+            {node.name}
+          </span>
+        </div>
+        
+        {isOpen && (
+          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRename(node.fullPath);
+              }}
+              className="text-yellow-500 hover:text-yellow-400"
+              title="Rename"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(node.fullPath);
+              }}
+              className="text-red-500 hover:text-red-400"
+              title="Delete"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -61,13 +283,53 @@ const SubSidebar: React.FC<SidebarProps> = ({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button
-            onClick={onCreate}
-            className="flex items-center gap-2 py-2 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-          >
-            <Plus size={16} />
-            <span className="truncate">New {typeLabel}</span>
-          </button>
+          
+          <div className="flex gap-2">
+            {onCreateFolder && (
+              <button
+                onClick={onCreateFolder}
+                className="flex items-center justify-center gap-2 py-2 px-3 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition text-sm font-medium flex-1"
+                title="New Folder"
+              >
+                <FolderPlus size={16} />
+                <span className="truncate">Folder</span>
+              </button>
+            )}
+            <button
+              onClick={onCreate}
+              disabled={isCreating}
+              className="flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus size={16} />
+              <span className="truncate">{typeLabel}</span>
+            </button>
+          </div>
+
+          {/* Breadcrumb */}
+          {currentFolder && onFolderChange && (
+            <div className="flex items-center gap-1 text-xs text-gray-400 overflow-x-auto">
+              <button
+                onClick={() => onFolderChange("")}
+                className="hover:text-blue-400 transition whitespace-nowrap"
+              >
+                Home
+              </button>
+              {currentFolder.split('/').map((part, index, arr) => {
+                const path = arr.slice(0, index + 1).join('/');
+                return (
+                  <React.Fragment key={path}>
+                    <ChevronRight size={12} />
+                    <button
+                      onClick={() => onFolderChange(path)}
+                      className="hover:text-blue-400 transition whitespace-nowrap"
+                    >
+                      {part}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -79,44 +341,15 @@ const SubSidebar: React.FC<SidebarProps> = ({
               No {typeLabel.toLowerCase()}s found. Create one!
             </p>
           )
+        ) : treeStructure.length === 0 ? (
+          isOpen && search && (
+            <p className="text-center text-gray-400 text-sm font-medium mt-4">
+              No results found for "{search}"
+            </p>
+          )
         ) : (
           <div className="space-y-1">
-            {items.map((name) => (
-              <div
-                key={name}
-                className="flex items-center justify-between hover:bg-gray-600 rounded-md px-2 py-2 group transition-all"
-              >
-                <span
-                  onClick={() => onSelect(name)}
-                  className={`truncate text-sm cursor-pointer text-gray-200 ${
-                    name === currentItem
-                      ? "bg-blue-900 text-blue-300 px-2 py-1 rounded-md"
-                      : ""
-                  }`}
-                  title={name}
-                >
-                  {isOpen ? name : name.slice(0, 1).toUpperCase()}
-                </span>
-                {isOpen && (
-                  <div className="flex gap-2 opacity-80 group-hover:opacity-100">
-                    <button
-                      onClick={() => onRename(name)}
-                      className="text-yellow-500 hover:text-yellow-400"
-                      title="Rename"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(name)}
-                      className="text-red-500 hover:text-red-400"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            {treeStructure.map(node => renderTreeNode(node))}
           </div>
         )}
       </div>
