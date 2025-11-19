@@ -213,13 +213,13 @@ export default function Notes({ roomId }: NotesProps) {
       isInitialLoadRef.current = false;
     }
   }
-}, [user, navigate, roomId, currentFile]);
+}, [user, navigate, roomId]);
 
 
 
   useEffect(() => {
     fetchNotes();
-  }, [fetchNotes]);
+  }, [user, roomId, navigate]);
 
   // Personal note autosave
   useEffect(() => {
