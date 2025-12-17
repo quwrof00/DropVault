@@ -26,21 +26,21 @@ export default function HomePage() {
 
   const features = [
     {
-      icon: "✨",
+      icon: "🧠",
       title: "Smart Notes",
       description: "Encrypted note-taking with rich formatting and real-time sync across all your devices.",
       color: "emerald",
       gradient: "from-emerald-400 to-teal-400"
     },
     {
-      icon: "⚡",
+      icon: "🧑‍💻",
       title: "Code Editor",
       description: "Multi-language editor with syntax highlighting and integrated compiler for instant testing.",
       color: "orange",
       gradient: "from-orange-400 to-red-400"
     },
     {
-      icon: "🚀",
+      icon: "👥",
       title: "Collaboration",
       description: "Create private rooms to share notes, code, and collaborate with study groups seamlessly.",
       color: "cyan",
@@ -295,45 +295,40 @@ export default function HomePage() {
 
         {/* Features Section */}
         <section id="features" className="py-24">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-emerald-200 to-cyan-200 bg-clip-text text-transparent">
-              {user ? "Your Toolkit" : "Powerful Features"}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
+              {user ? "Your Toolkit" : "Features"}
             </h2>
-            <div className="w-32 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400 mx-auto rounded-full mb-6"></div>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto font-light">
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
               {user ? "Everything you need for academic success" : "Built for the modern student workflow"}
             </p>
           </div>
          
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
               {/* Feature showcase */}
               <div className="order-2 lg:order-1">
-                <div className="bg-slate-900/80 backdrop-blur-2xl p-10 rounded-3xl border border-slate-700/50 shadow-2xl relative overflow-hidden group">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${features[currentFeature].gradient} opacity-5 rounded-3xl transition-opacity duration-500`}></div>
+                <div className="bg-slate-900/60 backdrop-blur p-8 rounded-2xl border border-slate-700/50 relative overflow-hidden">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${features[currentFeature].gradient} opacity-5 transition-opacity duration-300`}></div>
                   
                   <div className="relative">
-                    <div className={`text-8xl mb-8 text-center transition-all duration-500 transform ${
-                      currentFeature === 0 ? 'scale-110 filter drop-shadow-lg' : 
-                      currentFeature === 1 ? 'scale-110 filter drop-shadow-lg' : 
-                      'scale-110 filter drop-shadow-lg'
-                    }`}>
+                    <div className="text-6xl mb-6 text-center transition-all duration-300">
                       {features[currentFeature].icon}
                     </div>
-                    <h3 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    <h3 className="text-2xl font-semibold mb-4 text-center text-white">
                       {features[currentFeature].title}
                     </h3>
-                    <p className="text-slate-300 text-center text-lg leading-relaxed font-light">
+                    <p className="text-slate-300 text-center leading-relaxed">
                       {features[currentFeature].description}
                     </p>
                     
                     {/* Progress indicators */}
-                    <div className="flex justify-center space-x-2 mt-8">
+                    <div className="flex justify-center space-x-2 mt-6">
                       {features.map((_, index) => (
                         <div
                           key={index}
-                          className={`h-2 rounded-full transition-all duration-500 ${
-                            index === currentFeature ? 'w-8 bg-emerald-400' : 'w-2 bg-slate-600'
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            index === currentFeature ? 'w-8 bg-emerald-400' : 'w-1.5 bg-slate-600'
                           }`}
                         ></div>
                       ))}
@@ -343,30 +338,26 @@ export default function HomePage() {
               </div>
 
               {/* Feature navigation */}
-              <div className="order-1 lg:order-2 space-y-6">
+              <div className="order-1 lg:order-2 space-y-4">
                 {features.map((feature, index) => (
                   <button
                     key={index}
                     onClick={() => setCurrentFeature(index)}
-                    className={`w-full text-left p-8 rounded-3xl border-2 transition-all duration-500 transform hover:scale-105 ${
+                    className={`w-full text-left p-6 rounded-xl border transition-all duration-200 ${
                       currentFeature === index
-                        ? `border-${feature.color}-400 bg-gradient-to-r ${feature.gradient} bg-opacity-10 shadow-lg`
-                        : 'border-slate-700 hover:border-slate-600 bg-slate-900/40 hover:bg-slate-800/60'
+                        ? `border-${feature.color}-400/50 bg-slate-800/60`
+                        : 'border-slate-700/50 hover:border-slate-600 bg-slate-900/30 hover:bg-slate-800/40'
                     }`}
                   >
-                    <div className="flex items-start space-x-6">
-                      <div className={`text-4xl transition-all duration-300 ${
-                        currentFeature === index ? 'scale-110 filter drop-shadow-md' : ''
-                      }`}>
+                    <div className="flex items-start space-x-4">
+                      <div className="text-3xl">
                         {feature.icon}
                       </div>
                       <div className="flex-1">
-                        <h4 className={`text-xl font-bold mb-3 transition-colors ${
-                          currentFeature === index ? `text-${feature.color}-200` : 'text-white'
-                        }`}>
+                        <h4 className="text-lg font-semibold mb-2 text-white">
                           {feature.title}
                         </h4>
-                        <p className="text-slate-400 font-light leading-relaxed">
+                        <p className="text-slate-400 text-sm leading-relaxed">
                           {feature.description}
                         </p>
                       </div>

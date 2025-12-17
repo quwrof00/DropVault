@@ -215,8 +215,6 @@ export default function Notes({ roomId }: NotesProps) {
   }
 }, [user, navigate, roomId]);
 
-
-
   useEffect(() => {
     fetchNotes();
   }, [user, roomId, navigate]);
@@ -645,7 +643,7 @@ export default function Notes({ roomId }: NotesProps) {
           {currentFile ? (
             <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
               {roomId ? (
-                <CollabEditor roomId={roomId} user={user!} currentFile={currentFile} />
+                <CollabEditor roomId={roomId} fileName={currentFile} />
               ) : (
                 <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
               )}

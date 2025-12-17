@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "collab:server": "cross-env HOST=localhost PORT=1234 npx y-websocket"
   },
   "dependencies": {
     "@editorjs/editorjs": "^2.30.8",
@@ -34,6 +35,9 @@
     "react-toastify": "^11.0.5",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "ws": "^8.18.3",
+    "y-leveldb": "^0.2.0",
+    "y-websocket": "^3.0.0",
     "yjs": "^13.6.27"
   },
   "devDependencies": {
@@ -43,7 +47,9 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
+    "@y/websocket-server": "^0.1.1",
     "autoprefixer": "^10.4.21",
+    "cross-env": "^10.1.0",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",

@@ -218,67 +218,104 @@ export default function Files({ roomId }: FilesProps) {
     }
   };
 
-  const processFiles = async (fileList: FileList) => {
-    if (!user) return;
+  const sanitizeFileName = (name: string) => {
+  const extIndex = name.lastIndexOf(".");
+  const base = extIndex !== -1 ? name.slice(0, extIndex) : name;
+  const ext = extIndex !== -1 ? name.slice(extIndex) : "";
 
-    const validFiles: File[] = [];
-    const errors: string[] = [];
+  const sanitizedBase = base
+    .replace(/[^a-zA-Z0-9 _-]/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/_+/g, "_")
+    .trim()
+    .replace(/^_+|_+$/g, "");
 
-    for (const file of Array.from(fileList)) {
-      if (files[file.name]) {
-        errors.push(`File "${file.name}" already exists`);
-        continue;
-      }
+  return `${sanitizedBase || "file"}${ext}`;
+};
 
-      if (!isValidFileName(file.name)) {
-        errors.push(`"${file.name}" contains invalid characters. Only letters, numbers, spaces, _ and - are allowed`);
-        continue;
-      }
+const getSafeUniqueName = (
+  originalName: string,
+  existing: Record<string, any>
+) => {
+  const sanitized = sanitizeFileName(originalName);
 
-      if (file.size > 50 * 1024 * 1024) { // 50MB limit
-        errors.push(`"${file.name}" is too large (max 50MB)`);
-        continue;
-      }
+  if (!existing[sanitized]) return sanitized;
 
-      validFiles.push(file);
+  const extIndex = sanitized.lastIndexOf(".");
+  const base = extIndex !== -1 ? sanitized.slice(0, extIndex) : sanitized;
+  const ext = extIndex !== -1 ? sanitized.slice(extIndex) : "";
+
+  let i = 1;
+  let newName = `${base} (${i})${ext}`;
+
+  while (existing[newName]) {
+    i++;
+    newName = `${base} (${i})${ext}`;
+  }
+
+  return newName;
+};
+
+
+const processFiles = async (fileList: FileList) => {
+  if (!user) return;
+
+  const validFiles: File[] = [];
+  const errors: string[] = [];
+
+  for (const file of Array.from(fileList)) {
+    if (file.size > 50 * 1024 * 1024) {
+      errors.push(`"${file.name}" is too large (max 50MB)`);
+      continue;
     }
 
-    if (errors.length > 0) {
-      alert(`Some files could not be uploaded:\n${errors.join('\n')}`);
-    }
+    const safeName = getSafeUniqueName(file.name, files);
 
-    // Process valid files
-    for (const file of validFiles) {
-      const newEntry: FileEntry = {
-        name: file.name,
-        blob: file,
-        uploaded: false,
-        lastModified: file.lastModified,
-        progress: 0,
-        size: file.size,
-      };
+    const finalFile =
+      safeName === file.name
+        ? file
+        : new File([file], safeName, { type: file.type });
 
-      setFiles((prev) => ({
+    validFiles.push(finalFile);
+  }
+
+  if (errors.length > 0) {
+    alert(`Some files could not be uploaded:\n${errors.join("\n")}`);
+  }
+
+  // Process valid files
+  for (const file of validFiles) {
+    const newEntry: FileEntry = {
+      name: file.name,
+      blob: file,
+      uploaded: false,
+      lastModified: file.lastModified,
+      progress: 0,
+      size: file.size,
+    };
+
+    setFiles(prev => ({
+      ...prev,
+      [file.name]: newEntry,
+    }));
+
+    // Start progress animation
+    let progress = 0;
+    progressIntervals.current[file.name] = setInterval(() => {
+      progress += Math.random() * 15 + 5;
+      setFiles(prev => ({
         ...prev,
-        [file.name]: newEntry,
+        [file.name]: {
+          ...prev[file.name],
+          progress: Math.min(progress, 95),
+        },
       }));
+    }, 200);
 
-      // Start progress animation
-      let progress = 0;
-      progressIntervals.current[file.name] = setInterval(() => {
-        progress += Math.random() * 15 + 5;
-        setFiles((prev) => ({
-          ...prev,
-          [file.name]: {
-            ...prev[file.name],
-            progress: Math.min(progress, 95),
-          },
-        }));
-      }, 200);
+    await uploadToSupabase(newEntry);
+  }
+};
 
-      await uploadToSupabase(newEntry);
-    }
-  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
