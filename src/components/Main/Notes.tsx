@@ -7,6 +7,8 @@ import CollabEditor from "../CollabEditor";
 import { encrypt, decrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
 
+import { Dialog, type DialogProps } from "../UI/Dialog";
+
 interface User {
   id: string;
 }
@@ -47,7 +49,8 @@ export default function Notes({ roomId }: NotesProps) {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
   const lastSavedTextRef = useRef<string>("");
@@ -61,7 +64,7 @@ export default function Notes({ roomId }: NotesProps) {
   // Debounced save function for personal notes
   const savePersonalNote = useCallback(async (fileName: string, content: string, forceImmediate = false) => {
     if (!user || roomId || !fileName || !isMountedRef.current) return;
-    
+
     if (!forceImmediate && content === lastSavedTextRef.current) return;
 
     console.log(`Saving personal note: ${fileName}`);
@@ -70,26 +73,27 @@ export default function Notes({ roomId }: NotesProps) {
       setIsSaving(true);
       const secretKey = user.id;
       const encrypted = await encrypt(content, secretKey);
-      
+
       const { error } = await supabase
         .from("notes")
         .upsert(
-          { 
-            user_id: user.id, 
-            title: fileName, 
-            ciphertext: encrypted.ciphertext, 
-            iv: encrypted.iv, 
-            salt: encrypted.salt, 
-            room_id: null 
+          {
+            user_id: user.id,
+            title: fileName,
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv,
+            salt: encrypted.salt,
+            room_id: null
           },
           { onConflict: "user_id,title" }
         );
-        
+
       if (error) throw error;
-      
+
       lastSavedTextRef.current = content;
+      setFiles(prev => ({ ...prev, [fileName]: content }));
       console.log(`Successfully saved: ${fileName}`);
-      
+
       if (isMountedRef.current) {
         setError(null);
       }
@@ -107,113 +111,113 @@ export default function Notes({ roomId }: NotesProps) {
 
   // Fetch notes (personal or room notes)
   const fetchNotes = useCallback(async () => {
-  if (user === undefined) return;
+    if (user === undefined) return;
 
-  if (!user) {
-    navigate("/login");
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    const secretKey = roomId ?? user.id;
-
-    // ---------------------------------------------------------
-    // 1. Fetch Supabase notes ordered by updated_at DESC
-    // ---------------------------------------------------------
-    let query = supabase
-      .from("notes")
-      .select("title, ciphertext, iv, salt, updated_at");
-
-    if (roomId) {
-      query = query.eq("room_id", roomId);
-    } else {
-      query = query.eq("user_id", user.id).is("room_id", null);
-    }
-
-    query = query.order("updated_at", { ascending: false });
-
-    const {
-      data: supabaseData,
-      error,
-    }: { data: NoteRow[] | null; error: unknown } = await query;
-
-    if (error) {
-      console.error("Failed to fetch Supabase notes", error);
-      setError("Failed to load notes. Please try again.");
-      setFiles({});
+    if (!user) {
+      navigate("/login");
       return;
     }
 
-    // ---------------------------------------------------------
-    // 2. Decrypt notes into local object
-    // ---------------------------------------------------------
-    const supabaseNotes: Record<string, string> = {};
+    setIsLoading(true);
+    setError(null);
 
-    for (const note of supabaseData ?? []) {
-      const { title, ciphertext, iv, salt } = note;
+    try {
+      const secretKey = roomId ?? user.id;
 
-      try {
-        supabaseNotes[title] =
-          ciphertext && iv && salt
-            ? await decrypt({ ciphertext, iv, salt }, secretKey)
-            : "";
-      } catch (err) {
-        console.error("Decrypt failed for:", title, err);
-        supabaseNotes[title] =
-          "[Decryption failed - please check your access permissions]";
-      }
-    }
+      // ---------------------------------------------------------
+      // 1. Fetch Supabase notes ordered by updated_at DESC
+      // ---------------------------------------------------------
+      let query = supabase
+        .from("notes")
+        .select("title, ciphertext, iv, salt, updated_at");
 
-    if (!isMountedRef.current) return;
-
-    setFiles(supabaseNotes);
-
-    // ---------------------------------------------------------
-    // 3. Determine which file to open
-    // ---------------------------------------------------------
-
-    const currentExists =
-      currentFile && supabaseNotes[currentFile] !== undefined;
-
-    // A. If current file does not exist → pick newest real file
-    if (!currentExists) {
-      const firstFile = (supabaseData ?? [])
-        .map((n) => n.title)
-        .find((title) => !title.endsWith("/.placeholder"));
-
-      if (firstFile) {
-        setCurrentFile(firstFile);
-        setText(supabaseNotes[firstFile]);
-        lastSavedTextRef.current = supabaseNotes[firstFile];
+      if (roomId) {
+        query = query.eq("room_id", roomId);
       } else {
-        // No files at all
-        setCurrentFile("");
-        setText("");
-        lastSavedTextRef.current = "";
+        query = query.eq("user_id", user.id).is("room_id", null);
       }
-    } else {
-      // B. File exists → refresh its content
-      const updatedContent = supabaseNotes[currentFile];
-      if (updatedContent !== undefined) {
-        setText(updatedContent);
-        lastSavedTextRef.current = updatedContent;
+
+      query = query.order("updated_at", { ascending: false });
+
+      const {
+        data: supabaseData,
+        error,
+      }: { data: NoteRow[] | null; error: unknown } = await query;
+
+      if (error) {
+        console.error("Failed to fetch Supabase notes", error);
+        setError("Failed to load notes. Please try again.");
+        setFiles({});
+        return;
+      }
+
+      // ---------------------------------------------------------
+      // 2. Decrypt notes into local object
+      // ---------------------------------------------------------
+      const supabaseNotes: Record<string, string> = {};
+
+      for (const note of supabaseData ?? []) {
+        const { title, ciphertext, iv, salt } = note;
+
+        try {
+          supabaseNotes[title] =
+            ciphertext && iv && salt
+              ? await decrypt({ ciphertext, iv, salt }, secretKey)
+              : "";
+        } catch (err) {
+          console.error("Decrypt failed for:", title, err);
+          supabaseNotes[title] =
+            "[Decryption failed - please check your access permissions]";
+        }
+      }
+
+      if (!isMountedRef.current) return;
+
+      setFiles(supabaseNotes);
+
+      // ---------------------------------------------------------
+      // 3. Determine which file to open
+      // ---------------------------------------------------------
+
+      const currentExists =
+        currentFile && supabaseNotes[currentFile] !== undefined;
+
+      // A. If current file does not exist → pick newest real file
+      if (!currentExists) {
+        const firstFile = (supabaseData ?? [])
+          .map((n) => n.title)
+          .find((title) => !title.endsWith("/.placeholder"));
+
+        if (firstFile) {
+          setCurrentFile(firstFile);
+          setText(supabaseNotes[firstFile]);
+          lastSavedTextRef.current = supabaseNotes[firstFile];
+        } else {
+          // No files at all
+          setCurrentFile("");
+          setText("");
+          lastSavedTextRef.current = "";
+        }
+      } else {
+        // B. File exists → refresh its content
+        const updatedContent = supabaseNotes[currentFile];
+        if (updatedContent !== undefined) {
+          setText(updatedContent);
+          lastSavedTextRef.current = updatedContent;
+        }
+      }
+    } catch (err) {
+      console.error("Error loading notes:", err);
+      if (isMountedRef.current) {
+        setError("An unexpected error occurred while loading notes.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        isInitialLoadRef.current = false;
       }
     }
-  } catch (err) {
-    console.error("Error loading notes:", err);
-    if (isMountedRef.current) {
-      setError("An unexpected error occurred while loading notes.");
-    }
-  } finally {
-    if (isMountedRef.current) {
-      setIsLoading(false);
-      isInitialLoadRef.current = false;
-    }
-  }
-}, [user, navigate, roomId]);
+  }, [user, navigate, roomId]);
 
   useEffect(() => {
     fetchNotes();
@@ -222,7 +226,7 @@ export default function Notes({ roomId }: NotesProps) {
   // Personal note autosave
   useEffect(() => {
     if (!user || !currentFile || roomId || isInitialLoadRef.current) return;
-    
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -270,14 +274,14 @@ export default function Notes({ roomId }: NotesProps) {
   // Component cleanup
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     return () => {
       isMountedRef.current = false;
-      
+
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
-      
+
       if (user && !roomId && currentFile && text !== lastSavedTextRef.current) {
         savePersonalNote(currentFile, text, true).catch(console.error);
       }
@@ -288,283 +292,273 @@ export default function Notes({ roomId }: NotesProps) {
     if (!roomId && currentFile && text !== lastSavedTextRef.current) {
       savePersonalNote(currentFile, text, true).catch(console.error);
     }
-    
+
     setCurrentFile(file);
     setText(files[file] || "");
     lastSavedTextRef.current = files[file] || "";
     setError(null);
   }, [roomId, currentFile, text, files, savePersonalNote]);
 
-  const handleNewFolder = useCallback(async () => {
-  if (!user) return;
+  // Dialog Helpers
+  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
 
-  const name = prompt("Enter folder name:");
-  if (!name?.trim()) return;
-
-  const trimmedName = name.trim();
-
-  if (trimmedName.includes("/")) {
-    alert("Folder name cannot contain '/'");
-    return;
-  }
-
-  const fullPath = getFullPath(trimmedName);
-
-  // Folder exists check (stronger)
-  const folderExists = Object.keys(files).some(path =>
-    path === fullPath || path.startsWith(fullPath + "/")
-  );
-
-  if (folderExists) {
-    alert(`Folder "${trimmedName}" already exists!`);
-    return;
-  }
-
-  const placeholderPath = `${fullPath}/.placeholder`;
-
-  try {
-    const secretKey = roomId ?? user.id;
-    const encrypted = await encrypt("", secretKey);
-
-    const { error } = await supabase.from("notes").insert({
-      user_id: roomId ? null : user.id,
-      room_id: roomId ?? null,
-      title: placeholderPath,
-      ciphertext: encrypted.ciphertext,
-      iv: encrypted.iv,
-      salt: encrypted.salt,
+  const showAlert = (message: string) => {
+    setDialog({
+      isOpen: true,
+      title: "Alert",
+      message,
+      type: "alert",
+      onConfirm: closeDialog
     });
+  };
 
-    if (error) throw error;
-
-    setFiles(prev => ({ ...prev, [placeholderPath]: "" }));
-    setError(null);
-  } catch (err) {
-    console.error("Error creating folder:", err);
-    alert("Failed to create folder. Please try again.");
-  }
-}, [user, roomId, files, getFullPath]);
-
-
-  const handleNewFile = useCallback(async () => {
+  const handleNewFolder = useCallback(() => {
     if (!user) return;
+    setDialog({
+      isOpen: true,
+      title: "New Folder",
+      message: "Enter folder name:",
+      type: "input",
+      placeholder: "Folder Name",
+      confirmText: "Create",
+      onConfirm: async (name) => {
+        if (!name?.trim()) return;
+        const trimmedName = name.trim();
+        if (trimmedName.includes("/")) {
+          showAlert("Folder name cannot contain '/'");
+          return;
+        }
 
-    const name = prompt("Enter a name for your note:");
-    if (!name || !name.trim()) return;
+        const fullPath = getFullPath(trimmedName);
+        const folderExists = Object.keys(files).some(path =>
+          path === fullPath || path.startsWith(fullPath + "/")
+        );
 
-    const trimmedName = name.trim();
+        if (folderExists) {
+          showAlert(`Folder "${trimmedName}" already exists!`);
+          return;
+        }
 
-    const fullPath = getFullPath(trimmedName);
+        const placeholderPath = `${fullPath}/.placeholder`;
+        try {
+          const secretKey = roomId ?? user.id;
+          const encrypted = await encrypt("", secretKey);
+          const { error } = await supabase.from("notes").insert({
+            user_id: roomId ? null : user.id,
+            room_id: roomId ?? null,
+            title: placeholderPath,
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv,
+            salt: encrypted.salt,
+          });
 
-    if (files[fullPath]) {
-      alert(`Note with title "${trimmedName}" already exists!`);
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      const secretKey = roomId ?? user.id;
-      const encrypted = await encrypt("", secretKey);
-
-      const { error } = await supabase.from("notes").insert({
-        user_id: roomId ? null : user.id,
-        room_id: roomId ?? null,
-        title: fullPath,
-        ciphertext: encrypted.ciphertext,
-        iv: encrypted.iv,
-        salt: encrypted.salt,
-      });
-
-      if (error) throw error;
-
-      setFiles((prev) => ({ ...prev, [fullPath]: "" }));
-      setCurrentFile(fullPath);
-      setText("");
-      lastSavedTextRef.current = "";
-      setError(null);
-    } catch (err) {
-      console.error("Error creating note:", err);
-      alert("Failed to create note. Please try again.");
-    } finally {
-      setIsCreating(false);
-    }
+          if (error) throw error;
+          setFiles(prev => ({ ...prev, [placeholderPath]: "" }));
+          closeDialog();
+        } catch (err) {
+          console.error("Error creating folder:", err);
+          showAlert("Failed to create folder.");
+        }
+      }
+    });
   }, [user, roomId, files, getFullPath]);
 
-  const handleDelete = useCallback(async (file: string) => {
-    if (!user) return;
 
-    // Check if it's a folder by seeing if any files start with this path + /
-    const isFolder = Object.keys(files).some(path => 
-      path !== file && path.startsWith(file + '/')
-    );
-    
+  const handleNewFile = useCallback(() => {
+    if (!user) return;
+    setDialog({
+      isOpen: true,
+      title: "New Note",
+      message: "Enter a name for your note:",
+      type: "input",
+      placeholder: "Note Name",
+      confirmText: "Create",
+      onConfirm: async (name) => {
+        if (!name?.trim()) return;
+        const trimmedName = name.trim();
+        const fullPath = getFullPath(trimmedName);
+
+        if (files[fullPath]) {
+          showAlert(`Note with title "${trimmedName}" already exists!`);
+          return;
+        }
+
+        setIsCreating(true);
+        try {
+          const secretKey = roomId ?? user.id;
+          const encrypted = await encrypt("", secretKey);
+          const { error } = await supabase.from("notes").insert({
+            user_id: roomId ? null : user.id,
+            room_id: roomId ?? null,
+            title: fullPath,
+            ciphertext: encrypted.ciphertext,
+            iv: encrypted.iv,
+            salt: encrypted.salt,
+          });
+
+          if (error) throw error;
+          setFiles((prev) => ({ ...prev, [fullPath]: "" }));
+          setCurrentFile(fullPath);
+          setText("");
+          lastSavedTextRef.current = "";
+          closeDialog();
+        } catch (err) {
+          console.error("Error creating note:", err);
+          showAlert("Failed to create note.");
+        } finally {
+          setIsCreating(false);
+        }
+      }
+    });
+  }, [user, roomId, files, getFullPath]);
+
+  const handleDelete = useCallback((file: string) => {
+    if (!user) return;
+    const isFolder = Object.keys(files).some(path => path !== file && path.startsWith(file + '/'));
     const itemName = file.split('/').pop() || file;
 
-    if (!confirm(`Delete ${isFolder ? 'folder' : 'note'} "${itemName}"?${isFolder ? ' This will delete all notes inside.' : ''}`)) {
-      return;
-    }
+    setDialog({
+      isOpen: true,
+      title: `Delete ${isFolder ? 'Folder' : 'Note'}`,
+      message: `Are you sure you want to delete "${itemName}"?${isFolder ? ' This will delete all notes inside.' : ''}`,
+      type: "confirm",
+      confirmText: "Delete",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          if (isFolder) {
+            const filesToDelete = Object.keys(files).filter(path => path.startsWith(file + '/'));
+            for (const path of filesToDelete) {
+              const deleteQuery = supabase.from("notes").delete().eq("title", path);
+              if (roomId) deleteQuery.eq("room_id", roomId);
+              else deleteQuery.is("room_id", null).eq("user_id", user.id);
 
-    try {
-      if (isFolder) {
-        // Delete all files in the folder
-        const filesToDelete = Object.keys(files).filter(path => path.startsWith(file + '/'));
-        
-        for (const path of filesToDelete) {
-          const deleteQuery = supabase.from("notes").delete().eq("title", path);
+              const { error } = await deleteQuery;
+              if (error) throw error;
+            }
+            setFiles(prev => {
+              const updated = { ...prev };
+              filesToDelete.forEach(path => delete updated[path]);
+              return updated;
+            });
 
-          if (roomId) {
-            deleteQuery.eq("room_id", roomId);
+            if (currentFile.startsWith(file + '/')) {
+              setCurrentFile("");
+              setText("");
+              lastSavedTextRef.current = "";
+            }
           } else {
-            deleteQuery.is("room_id", null).eq("user_id", user.id);
+            const deleteQuery = supabase.from("notes").delete().eq("title", file);
+            if (roomId) deleteQuery.eq("room_id", roomId);
+            else deleteQuery.is("room_id", null).eq("user_id", user.id);
+
+            const { error } = await deleteQuery;
+            if (error) throw error;
+
+            setFiles(prev => {
+              const updated = { ...prev };
+              delete updated[file];
+              return updated;
+            });
+
+            if (file === currentFile) {
+              setCurrentFile("");
+              setText("");
+              lastSavedTextRef.current = "";
+            }
           }
-
-          const { error } = await deleteQuery;
-          if (error) throw error;
-        }
-
-        const updated = { ...files };
-        filesToDelete.forEach(path => delete updated[path]);
-        setFiles(updated);
-
-        // If current file was in deleted folder, clear selection
-        if (currentFile.startsWith(file + '/')) {
-          const next = Object.keys(updated).find(key => !key.endsWith('/.placeholder')) || "";
-          setCurrentFile(next);
-          setText(updated[next] || "");
-          lastSavedTextRef.current = updated[next] || "";
-        }
-      } else {
-        // Delete single file
-        const deleteQuery = supabase.from("notes").delete().eq("title", file);
-
-        if (roomId) {
-          deleteQuery.eq("room_id", roomId);
-        } else {
-          deleteQuery.is("room_id", null).eq("user_id", user.id);
-        }
-
-        const { error } = await deleteQuery;
-        if (error) throw error;
-
-        const updated = { ...files };
-        delete updated[file];
-        setFiles(updated);
-
-        if (file === currentFile) {
-          const next = Object.keys(updated).find(key => !key.endsWith('/.placeholder')) || "";
-          setCurrentFile(next);
-          setText(updated[next] || "");
-          lastSavedTextRef.current = updated[next] || "";
+          closeDialog();
+        } catch (err) {
+          console.error("Delete failed:", err);
+          showAlert("Failed to delete.");
         }
       }
-
-      setError(null);
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert(`Failed to delete. Please try again.`);
-    }
+    });
   }, [user, roomId, files, currentFile]);
 
-  const handleRename = useCallback(async (file: string) => {
+  const handleRename = useCallback((file: string) => {
     if (!user) return;
-
-    // Check if it's a folder
-    const isFolder = Object.keys(files).some(path => 
-      path !== file && path.startsWith(file + '/')
-    );
-    
+    const isFolder = Object.keys(files).some(path => path !== file && path.startsWith(file + '/'));
     const oldName = file.split('/').pop() || file;
-    const newName = prompt(`Enter new name for ${isFolder ? 'folder' : 'note'}:`, oldName);
-    
-    if (!newName || !newName.trim() || newName.trim() === oldName) return;
 
-    const trimmedName = newName.trim();
-    
-    if (trimmedName.includes('/')) {
-      alert("Name cannot contain '/' character");
-      return;
-    }
-
-    const pathParts = file.split('/');
-    pathParts[pathParts.length - 1] = trimmedName;
-    const newPath = pathParts.join('/');
-
-    if (files[newPath]) {
-      alert(`A ${isFolder ? 'folder' : 'note'} with name "${trimmedName}" already exists!`);
-      return;
-    }
-
-    try {
-      if (isFolder) {
-        // Rename folder and all its contents
-        const itemsToRename = Object.keys(files).filter(path => path.startsWith(file + '/'));
-        
-        for (const path of itemsToRename) {
-          const newItemPath = path.replace(file, newPath);
-          const updateQuery = supabase
-            .from("notes")
-            .update({ title: newItemPath })
-            .eq("title", path);
-
-          if (roomId) {
-            updateQuery.eq("room_id", roomId);
-          } else {
-            updateQuery.is("room_id", null).eq("user_id", user.id);
-          }
-
-          const { error } = await updateQuery;
-          if (error) throw error;
+    setDialog({
+      isOpen: true,
+      title: `Rename ${isFolder ? 'Folder' : 'Note'}`,
+      type: "input",
+      defaultValue: oldName,
+      confirmText: "Rename",
+      onConfirm: async (newName) => {
+        if (!newName?.trim() || newName.trim() === oldName) {
+          closeDialog();
+          return;
         }
 
-        setFiles(prev => {
-          const updated: { [key: string]: string } = {};
-          Object.keys(prev).forEach(key => {
-            if (key.startsWith(file + '/')) {
-              updated[key.replace(file, newPath)] = prev[key];
-            } else {
-              updated[key] = prev[key];
+        const trimmedName = newName.trim();
+        if (trimmedName.includes('/')) {
+          showAlert("Name cannot contain '/' character");
+          return;
+        }
+
+        const pathParts = file.split('/');
+        pathParts[pathParts.length - 1] = trimmedName;
+        const newPath = pathParts.join('/');
+
+        if (files[newPath]) {
+          showAlert(`A ${isFolder ? 'folder' : 'note'} with name "${trimmedName}" already exists!`);
+          return;
+        }
+
+        try {
+          if (isFolder) {
+            const itemsToRename = Object.keys(files).filter(path => path.startsWith(file + '/'));
+            for (const path of itemsToRename) {
+              const newItemPath = path.replace(file, newPath);
+              const updateQuery = supabase.from("notes").update({ title: newItemPath }).eq("title", path);
+              if (roomId) updateQuery.eq("room_id", roomId);
+              else updateQuery.is("room_id", null).eq("user_id", user.id);
+              const { error } = await updateQuery;
+              if (error) throw error;
             }
-          });
-          return updated;
-        });
 
-        if (currentFile.startsWith(file + '/')) {
-          setCurrentFile(currentFile.replace(file, newPath));
-        }
-      } else {
-        // Rename single file
-        const updateQuery = supabase
-          .from("notes")
-          .update({ title: newPath })
-          .eq("title", file);
+            setFiles(prev => {
+              const updated: { [key: string]: string } = {};
+              Object.keys(prev).forEach(key => {
+                if (key.startsWith(file + '/')) {
+                  updated[key.replace(file, newPath)] = prev[key];
+                } else {
+                  updated[key] = prev[key];
+                }
+              });
+              return updated;
+            });
+            if (currentFile.startsWith(file + '/')) {
+              setCurrentFile(currentFile.replace(file, newPath));
+            }
+          } else {
+            const updateQuery = supabase.from("notes").update({ title: newPath }).eq("title", file);
+            if (roomId) updateQuery.eq("room_id", roomId);
+            else updateQuery.is("room_id", null).eq("user_id", user.id);
+            const { error } = await updateQuery;
+            if (error) throw error;
 
-        if (roomId) {
-          updateQuery.eq("room_id", roomId);
-        } else {
-          updateQuery.is("room_id", null).eq("user_id", user.id);
-        }
+            setFiles(prev => {
+              const updated = { ...prev };
+              delete updated[file];
+              updated[newPath] = files[file]; // Keep content
+              return updated;
+            });
 
-        const { error } = await updateQuery;
-        if (error) throw error;
-
-        setFiles((prev) => {
-          const updated: { [key: string]: string } = {};
-          Object.keys(prev).forEach((key) => {
-            updated[key === file ? newPath : key] = prev[key];
-          });
-          return updated;
-        });
-
-        if (file === currentFile) {
-          setCurrentFile(newPath);
+            if (file === currentFile) {
+              setCurrentFile(newPath);
+            }
+          }
+          closeDialog();
+        } catch (err) {
+          console.error(err);
+          showAlert("Failed to rename.");
         }
       }
-
-      setError(null);
-    } catch (err) {
-      console.error("Rename failed:", err);
-      alert(`Failed to rename. Please try again.`);
-    }
+    });
   }, [user, roomId, files, currentFile]);
 
   const handleTextUpdate = useCallback((newText: string) => {
@@ -574,14 +568,14 @@ export default function Notes({ roomId }: NotesProps) {
   // Get all file paths (excluding placeholders) for SubSidebar to build tree
   const allFilePaths = Object.keys(files);
 
-// Folders = entries ending with /.placeholder (strip the placeholder)
-// const folderPaths = allFilePaths
-//   .filter(path => path.endsWith('/.placeholder'))
-//   .map(path => path.replace('/.placeholder', ''));
+  // Folders = entries ending with /.placeholder (strip the placeholder)
+  // const folderPaths = allFilePaths
+  //   .filter(path => path.endsWith('/.placeholder'))
+  //   .map(path => path.replace('/.placeholder', ''));
 
-// // Files = everything except placeholder entries
-// const filePaths = allFilePaths
-//   .filter(path => !path.endsWith('/.placeholder'));
+  // // Files = everything except placeholder entries
+  // const filePaths = allFilePaths
+  //   .filter(path => !path.endsWith('/.placeholder'));
 
 
   if (isLoading) {
@@ -603,6 +597,13 @@ export default function Notes({ roomId }: NotesProps) {
           <button onClick={() => setError(null)} className="ml-2 text-red-200 hover:text-white transition-colors">✕</button>
         </div>
       )}
+
+      <Dialog
+        onClose={closeDialog}
+        {...dialog}
+        isOpen={dialog.isOpen}
+        title={dialog.title || ""}
+      />
 
       <SubSidebar
         search={search}
@@ -653,8 +654,8 @@ export default function Notes({ roomId }: NotesProps) {
               <div className="text-center">
                 <p className="text-lg mb-2">No note selected</p>
                 <p className="text-sm opacity-75">
-                  {Object.keys(files).length === 0 
-                    ? "Create your first note to get started" 
+                  {Object.keys(files).length === 0
+                    ? "Create your first note to get started"
                     : "Select a note from the sidebar to begin editing"
                   }
                 </p>

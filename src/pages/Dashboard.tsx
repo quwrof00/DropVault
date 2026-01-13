@@ -2,34 +2,29 @@ import { supabase } from "../lib/supabase-client";
 import { useAuthUser } from "../hooks/useAuthUser";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { DashboardCard } from "../components/Dashboard/DashboardCard";
 
 export default function Dashboard() {
   const user = useAuthUser();
   const navigate = useNavigate();
   const [counts, setCounts] = useState<{
-  images: number;
-  files: number;
-  notes: number;
-  codes: number;
-  loading: boolean;
-  error: string | null;
-}>({
-  images: 0,
-  files: 0,
-  notes: 0,
-  codes: 0,
-  loading: true,
-  error: null,
-});
-
+    images: number;
+    files: number;
+    notes: number;
+    codes: number;
+    loading: boolean;
+    error: string | null;
+  }>({
+    images: 0,
+    files: 0,
+    notes: 0,
+    codes: 0,
+    loading: true,
+    error: null,
+  });
 
   useEffect(() => {
-    
-    if (user === undefined) return;
-    if (!user) {
-      navigate("/login");
-      return;
-    }
+    if (!user) return;
 
     const fetchData = async () => {
       try {
@@ -58,18 +53,17 @@ export default function Dashboard() {
           error: null
         });
       } catch (error: any) {
-          console.error(error);
-          setCounts(prev => ({
-    ...prev,
-    loading: false,
-    error: error?.message || "Unknown error",
-  }));
-}
-
+        console.error(error);
+        setCounts(prev => ({
+          ...prev,
+          loading: false,
+          error: error?.message || "Unknown error",
+        }));
+      }
     };
 
     fetchData();
-  }, [user, navigate]);
+  }, [user]);
 
   if (counts.loading) {
     return (
@@ -87,7 +81,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
         <div className="text-center text-red-400">
           <p>Error loading dashboard data</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700"
           >
@@ -102,43 +96,39 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-300">
-  Dashboard <span className="text-base md:text-lg font-light text-gray-400 align-middle">
-  | {user?.email}
-</span>
-</h1>
-        
+          Dashboard <span className="text-base md:text-lg font-light text-gray-400 align-middle">
+            | {user?.email}
+          </span>
+        </h1>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {/* Images Card */}
-          <DashboardCard 
-            title="Images" 
-            count={counts.images} 
+          <DashboardCard
+            title="Images"
+            count={counts.images}
             icon="🖼️"
             color="from-purple-500 to-indigo-500"
             onClick={() => navigate("/main")}
           />
-          
-          {/* Files Card */}
-          <DashboardCard 
-            title="Files" 
-            count={counts.files} 
+
+          <DashboardCard
+            title="Files"
+            count={counts.files}
             icon="📁"
             color="from-green-500 to-teal-500"
             onClick={() => navigate("/main")}
           />
-          
-          {/* Notes Card */}
-          <DashboardCard 
-            title="Notes" 
-            count={counts.notes} 
+
+          <DashboardCard
+            title="Notes"
+            count={counts.notes}
             icon="📝"
             color="from-yellow-500 to-amber-500"
             onClick={() => navigate("/main")}
           />
-          
-          {/* Code Snippets Card */}
-          <DashboardCard 
-            title="Code Snippets" 
-            count={counts.codes} 
+
+          <DashboardCard
+            title="Code Snippets"
+            count={counts.codes}
             icon="💻"
             color="from-red-500 to-pink-500"
             onClick={() => navigate("/main")}
@@ -153,32 +143,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-type DashboardCardProps = {
-  title: string;
-  count: number;
-  icon: string;
-  color: string;
-  onClick: () => void;
-};
-
-function DashboardCard({ title, count, icon, color, onClick }: DashboardCardProps) {
-  return (
-    <div 
-      className={`bg-gradient-to-br ${color} rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
-      onClick={onClick}
-    >
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="text-gray-200 text-sm font-medium">{title}</p>
-          <p className="text-3xl font-bold mt-2">{count}</p>
-        </div>
-        <span className="text-4xl">{icon}</span>
-      </div>
-      <p className="text-gray-200 text-xs mt-4 opacity-80">View all {title.toLowerCase()}</p>
     </div>
   );
 }

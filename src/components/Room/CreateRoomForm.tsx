@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuthUser } from "../../hooks/useAuthUser";
 
 export type RoomFormData = {
@@ -15,6 +15,7 @@ type Props = {
 export function CreateRoomForm({ onClose, onCreate }: Props) {
   const user = useAuthUser();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const generateRandomCode = () => {
     const letters = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -22,45 +23,29 @@ export function CreateRoomForm({ onClose, onCreate }: Props) {
     return `${letters}-${digits}`;
   };
 
-  const initialFormState = {
+  const [roomFormData, setRoomFormData] = useState({
     roomName: "",
-    useCustomCode: false,
-    customCode: "",
     randomCode: generateRandomCode(),
-  };
+  });
 
-  const [roomFormData, setRoomFormData] = useState(initialFormState);
-
-  useEffect(() => {
-    if (!roomFormData.useCustomCode) {
-      setRoomFormData((prev) => ({
-        ...prev,
-        randomCode: generateRandomCode(),
-      }));
-    }
-  }, [roomFormData.useCustomCode]);
-
-  const handleChange = (field: string, value: string | boolean) => {
+  const handleChange = (field: string, value: string) => {
     setRoomFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+    setError(null);
   };
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (!user) {
-      alert("You must be logged in to create a room.");
+      setError("You must be logged in to create a room.");
       return;
     }
 
-    const code = roomFormData.useCustomCode
-      ? roomFormData.customCode.trim()
-      : roomFormData.randomCode;
-
-    if (!roomFormData.roomName || (roomFormData.useCustomCode && !roomFormData.customCode)) {
-      alert("Please fill all required fields.");
+    if (!roomFormData.roomName) {
+      setError("Please enter a room name.");
       return;
     }
 
@@ -68,73 +53,65 @@ export function CreateRoomForm({ onClose, onCreate }: Props) {
 
     onCreate({
       name: roomFormData.roomName,
-      code,
+      code: roomFormData.randomCode,
     });
 
     setLoading(false);
-    setRoomFormData(initialFormState); // Clear form after creation
+    setRoomFormData({
+      roomName: "",
+      randomCode: generateRandomCode(),
+    });
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-gray-800 border border-gray-700 p-6 rounded-xl shadow-2xl w-full max-w-md relative animate-scale-in">
         <button
           onClick={onClose}
-          className="absolute top-3 right-4 text-gray-500 hover:text-gray-700 text-xl"
+          className="absolute top-3 right-4 text-gray-400 hover:text-white transition-colors text-xl"
         >
           &times;
         </button>
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">Create a Room</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-100">Create a Room</h2>
+
+        {error && (
+          <div className="mb-4 bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded text-sm">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Room Name</label>
+            <label className="block text-sm font-medium text-gray-300">Room Name</label>
             <input
               type="text"
               value={roomFormData.roomName}
               onChange={(e) => handleChange("roomName", e.target.value)}
-              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:border-blue-500"
+              className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               required
+              placeholder="My Awesome Room"
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={roomFormData.useCustomCode}
-              onChange={() => handleChange("useCustomCode", !roomFormData.useCustomCode)}
-              id="useCustomCode"
-            />
-            <label htmlFor="useCustomCode" className="text-sm text-gray-700">
-              Use custom room code
-            </label>
+          <div className="text-sm text-gray-400 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+            <span className="font-medium text-gray-300">Room Code:</span>{" "}
+            <code className="bg-gray-800 px-2 py-1 rounded text-blue-300 font-mono text-base ml-2">
+              {roomFormData.randomCode}
+            </code>
+            <p className="mt-1 text-xs text-gray-500">Share this code with others to let them join.</p>
           </div>
-
-          {roomFormData.useCustomCode ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Custom Code</label>
-              <input
-                type="text"
-                value={roomFormData.customCode}
-                onChange={(e) => handleChange("customCode", e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:border-blue-500"
-                maxLength={12}
-              />
-            </div>
-          ) : (
-            <div className="text-sm text-gray-600">
-              <span className="font-medium text-gray-700">Generated Room Code:</span>{" "}
-              <code className="bg-gray-100 px-2 py-1 rounded-md font-mono">
-                {roomFormData.randomCode}
-              </code>
-            </div>
-          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-all disabled:opacity-50"
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {loading ? "Creating..." : "Create Room"}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Creating...
+              </>
+            ) : "Create Room"}
           </button>
         </form>
       </div>

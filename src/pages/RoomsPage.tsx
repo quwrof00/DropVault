@@ -1,302 +1,112 @@
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase-client";
+import { useState, useEffect } from "react";
 import { useAuthUser } from "../hooks/useAuthUser";
-import { useNavigate } from "react-router-dom";
-import { toast } from 'react-toastify';
 import { CreateRoomForm } from "../components/Room/CreateRoomForm";
 import { CreateRoomButton } from "../components/Room/CreateRoomButton";
 import { JoinRoomButton } from "../components/Room/JoinRoomButton";
-
-type Room = {
-  id: string;
-  name: string;
-  created_by: string;
-};
-
-type RoomFormData = {
-  name: string;
-  code: string;
-};
+import { RoomCard } from "../components/Room/RoomCard";
+import { useRooms } from "../hooks/useRooms";
+import type { RoomFormData } from "../hooks/useRooms";
+import { Dialog, type DialogProps } from "../components/UI/Dialog";
 
 export default function RoomsPage() {
-  const navigate = useNavigate();
   const user = useAuthUser();
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [createRoom, setCreateRoom] = useState(false);
+  const { rooms, loading, error, success, createRoom, joinRoom, leaveRoom, setError, setSuccess } = useRooms();
+
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const fetchRooms = async () => {
-    if (!user) return;
+  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
 
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("room_users")
-      .select("rooms(id, name, created_by), inserted_at")
-      .eq("user_id", user.id)
-      .order("inserted_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching rooms:", error);
-      setLoading(false);
-      return;
-    }
-
-    const roomList: Room[] = data.flatMap((entry) => entry.rooms);
-    setRooms(roomList);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchRooms();
-  }, [user]);
-
-  async function handleRoomCreate(data: RoomFormData) {
-    if (!user) {
-      console.error("User not logged in");
-      setError("You must be logged in to create a room.");
-      return;
-    }
-
-    setIsCreatingRoom(true);
-    setError(null);
-
-    try {
-      // Validate input data
-      if (!data.name?.trim() || !data.code?.trim()) {
-        setError("Room name and code are required.");
-        return;
-      }
-
-      // Check if room code already exists
-      const { data: existingRoom } = await supabase
-        .from("rooms")
-        .select("code")
-        .eq("code", data.code.trim())
-        .maybeSingle();
-
-      if (existingRoom) {
-        setError("A room with this code already exists. Please choose a different code.");
-        return;
-      }
-
-      const { error: roomError, data: room } = await supabase
-        .from("rooms")
-        .insert([
-          {
-            name: data.name.trim(),
-            code: data.code.trim(),
-            created_by: user.id,
-          },
-        ])
-        .select()
-        .single();
-
-      if (roomError || !room) {
-        console.error("Error creating room:", roomError?.message);
-        setError(`Failed to create room: ${roomError?.message || "Unknown error"}`);
-        return;
-      }
-
-      const { error: userAddError } = await supabase.from("room_users").insert({
-        room_id: room.id,
-        user_id: user.id,
-      });
-
-      if (userAddError) {
-        console.error("Error adding user to room:", userAddError.message);
-        setError("Room created but failed to add you to it. Please try joining manually.");
-        return;
-      }
-
-      console.log("Room created and user added:", room);
-      setSuccess(`Room "${data.name}" created successfully!`);
-      setCreateRoom(false);
-      await fetchRooms(); // Refresh room list
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      console.error("Unexpected error creating room:", err);
-      setError("An unexpected error occurred while creating the room.");
-    } finally {
-      setIsCreatingRoom(false);
-    }
-  }
-
-  async function handleJoinRoom() {
-    if (!user) {
-      setError("You must be logged in to join a room.");
-      return;
-    }
-
-    const code = prompt("Enter room code (case-sensitive):");
-    if (!code?.trim()) return;
-
-    const trimmedCode = code.trim();
-    setIsJoiningRoom(true);
-    setError(null);
-
-    try {
-      console.log("Entered code:", JSON.stringify(trimmedCode));
-      console.log(
-        "Entered code char codes:",
-        Array.from(trimmedCode).map((c: string) => c.charCodeAt(0))
-      );
-
-      // Fetch a single room by code (case-sensitive)
-      const { data: matchingRoom, error } = await supabase
-        .from("rooms")
-        .select("id, code, name")
-        .eq("code", trimmedCode)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error finding room:", error.message);
-        setError("Error searching for room. Please try again.");
-        return;
-      }
-
-      if (!matchingRoom) {
-        setError("Room not found. Please check the code and try again (case-sensitive).");
-        return;
-      }
-
-      console.log(
-        `Found room: ID=${matchingRoom.id}, Code="${matchingRoom.code}", Name="${matchingRoom.name}"`
-      );
-
-      // Check if user already in the room
-      const { data: existing, error: existingError } = await supabase
-        .from("room_users")
-        .select("*")
-        .eq("room_id", matchingRoom.id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (existingError) {
-        console.error("Error checking room membership:", existingError.message);
-        setError("Error checking room membership. Please try again.");
-        return;
-      }
-
-      if (existing) {
-        setSuccess(`You're already a member of "${matchingRoom.name}"!`);
-        setTimeout(() => setSuccess(null), 3000);
-        return;
-      }
-
-      const { error: joinError } = await supabase.from("room_users").insert({
-        room_id: matchingRoom.id,
-        user_id: user.id,
-      });
-
-      if (joinError) {
-        console.error("Error joining room:", joinError.message);
-        setError("Could not join room. Please try again.");
-        return;
-      }
-
-      setSuccess(`Successfully joined "${matchingRoom.name}"!`);
-      await fetchRooms(); // Refresh room list
-      setTimeout(() => {
-        setSuccess(null);
-      }, 2000);
-    } catch (err) {
-      console.error("Unexpected error joining room:", err);
-      setError("An unexpected error occurred while joining the room.");
-    } finally {
-      setIsJoiningRoom(false);
-    }
-  }
-
-  const handleLeaveRoom = async (roomId: string, roomName: string) => {
-    if (!user) return;
-
-    const confirmLeave = window.confirm(
-      `Are you sure you want to leave the room "${roomName}"?`
-    );
-    if (!confirmLeave) return;
-
-    try {
-      // Check if user is the creator of the room
-      const { data: roomData, error: roomError } = await supabase
-        .from("rooms")
-        .select("created_by")
-        .eq("id", roomId)
-        .single();
-
-      if (roomError || !roomData) {
-        console.error("Error checking room creator:", roomError);
-        window.alert("Could not verify room creator.");
-        return;
-      }
-
-      if (roomData.created_by === user.id) {
-        // Creator leaving → must delete room
-        const confirmDelete = window.confirm(
-          `You are the creator of "${roomName}". Leaving will delete the room for all users. Proceed?`
-        );
-        if (!confirmDelete) return;
-
-        // 1. Delete room_users first
-        const { error: usersError } = await supabase
-          .from("room_users")
-          .delete()
-          .eq("room_id", roomId);
-
-        if (usersError) {
-          console.error("Error deleting room_users:", usersError);
-          window.alert(`Failed to delete room users: ${usersError.message}`);
-          return;
-        }
-
-        // 2. Delete the room itself
-        const { error: roomDeleteError } = await supabase
-          .from("rooms")
-          .delete()
-          .eq("id", roomId);
-
-        if (roomDeleteError) {
-          console.error("Error deleting room:", roomDeleteError);
-          window.alert(`Failed to delete room: ${roomDeleteError.message}`);
-          return;
-        }
-      } else {
-        // Non-creator → just remove user from room_users
-        const { error } = await supabase
-          .from("room_users")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("room_id", roomId);
-
-        if (error) {
-          console.error("Error leaving room:", error);
-          window.alert(`Failed to leave room: ${error.message}`);
-          return;
-        }
-      }
-
-      // Refresh list after success
-      await fetchRooms();
-      toast.success(`You have left "${roomName}".`);
-    } catch (err: any) {
-      console.error("Unexpected error leaving room:", err);
-      window.alert(`Unexpected error: ${err.message ?? "Check console for details"}`);
-    }
-  };
-
-  // Auto-clear error messages after 5 seconds
   useEffect(() => {
     if (error) {
       const timeout = setTimeout(() => setError(null), 5000);
       return () => clearTimeout(timeout);
     }
-  }, [error]);
+  }, [error, setError]);
+
+  // Dialog helpers
+  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
+
+  async function handleRoomCreate(data: RoomFormData) {
+    if (!user) return;
+    setIsCreatingRoom(true);
+    const ok = await createRoom(data);
+    setIsCreatingRoom(false);
+    if (ok) setCreateRoomOpen(false);
+  }
+
+  function handleJoinRoom() {
+    if (!user) return;
+    setDialog({
+      isOpen: true,
+      title: "Join Room",
+      message: "Enter room code (case-sensitive):",
+      type: "input",
+      placeholder: "Room Code",
+      confirmText: "Join",
+      onConfirm: async (code) => {
+        if (!code?.trim()) return;
+        setIsJoiningRoom(true);
+        // We close dialog immediately or after? 
+        // Logic says close dialog, then show loading logic.
+        // But joinRoom sets state.
+        closeDialog();
+        await joinRoom(code);
+        setIsJoiningRoom(false);
+      }
+    });
+  }
+
+  function handleLeaveRoom(roomId: string, roomName: string) {
+    if (!user) return;
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    // Check creator
+    const isCreator = room.created_by === user.id;
+
+    if (isCreator) {
+      setDialog({
+        isOpen: true,
+        title: "Delete Room?",
+        message: `You are the creator of "${roomName}". Leaving will delete the room for all users. Proceed?`,
+        type: "confirm",
+        confirmText: "Delete Room",
+        variant: "danger",
+        onConfirm: async () => {
+          closeDialog();
+          const ok = await leaveRoom(roomId, true);
+          if (ok) setSuccess(`Left and deleted "${roomName}"`);
+        }
+      });
+    } else {
+      setDialog({
+        isOpen: true,
+        title: "Leave Room",
+        message: `Are you sure you want to leave the room "${roomName}"?`,
+        type: "confirm",
+        confirmText: "Leave",
+        variant: "danger",
+        onConfirm: async () => {
+          closeDialog();
+          const ok = await leaveRoom(roomId, false);
+          if (ok) setSuccess(`Left "${roomName}"`);
+        }
+      });
+    }
+  }
 
   return (
     <div className="flex-1 min-h-[calc(100vh-4rem)] bg-gray-700 p-4 sm:p-6 lg:p-8">
+      {/* Helper Dialog */}
+      <Dialog
+        onClose={closeDialog}
+        {...dialog}
+        isOpen={dialog.isOpen}
+        title={dialog.title || ""}
+      />
+
       {/* Success/Error Messages */}
       {(success || error) && (
         <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
@@ -308,7 +118,7 @@ export default function RoomsPage() {
                 </svg>
               </div>
               <span className="font-medium">{success}</span>
-              <button 
+              <button
                 onClick={() => setSuccess(null)}
                 className="ml-2 text-emerald-200 hover:text-white transition-colors p-1"
               >
@@ -326,7 +136,7 @@ export default function RoomsPage() {
                 </svg>
               </div>
               <span className="font-medium">{error}</span>
-              <button 
+              <button
                 onClick={() => setError(null)}
                 className="ml-2 text-rose-200 hover:text-white transition-colors p-1"
               >
@@ -346,11 +156,11 @@ export default function RoomsPage() {
           </h1>
           {user && (
             <div className="flex items-center space-x-3">
-              <CreateRoomButton 
-                onClick={() => setCreateRoom(true)}
+              <CreateRoomButton
+                onClick={() => setCreateRoomOpen(true)}
                 isCreating={isCreatingRoom}
               />
-              <JoinRoomButton 
+              <JoinRoomButton
                 onClick={handleJoinRoom}
                 isJoining={isJoiningRoom}
               />
@@ -369,33 +179,19 @@ export default function RoomsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.map((room) => (
-              <div
+              <RoomCard
                 key={room.id}
-                className="bg-gray-800 rounded-xl shadow-lg hover:shadow-xl hover:bg-gray-600 transform hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="p-6 flex justify-between items-center">
-                  <h2
-                    className="text-xl font-semibold text-gray-100 truncate cursor-pointer"
-                    onClick={() => navigate(`/room?roomId=${room.id}`)}
-                  >
-                    {room.name}
-                  </h2>
-                  <button
-                    onClick={() => handleLeaveRoom(room.id, room.name)}
-                    className="text-sm text-gray-400 hover:text-red-400 px-2 py-1 rounded-md hover:bg-gray-700 transition-colors duration-200"
-                  >
-                    Leave
-                  </button>
-                </div>
-              </div>
+                room={room}
+                onLeave={handleLeaveRoom}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {createRoom && (
+      {createRoomOpen && (
         <CreateRoomForm
-          onClose={() => setCreateRoom(false)}
+          onClose={() => setCreateRoomOpen(false)}
           onCreate={handleRoomCreate}
           isCreating={isCreatingRoom}
         />

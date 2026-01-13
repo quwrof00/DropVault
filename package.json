@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "collab:server": "cross-env HOST=localhost PORT=1234 npx y-websocket"
+    "collab:server": "cross-env HOST=localhost PORT=1234 node server/index.js"
   },
   "dependencies": {
     "@editorjs/editorjs": "^2.30.8",
