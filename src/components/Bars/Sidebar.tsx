@@ -10,6 +10,8 @@ type User = {
 type SidebarProps = {
   onSelect: (section: string) => void;
   activeSection?: string;
+  className?: string; // Allow external styling (for width/position)
+  onClose?: () => void; // Allow closing from within sidebar (mobile)
 };
 
 const sections = [
@@ -19,7 +21,7 @@ const sections = [
   { name: "Code", icon: "💻" },
 ];
 
-const Sidebar = ({ onSelect, activeSection }: SidebarProps) => {
+const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarProps) => {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
   const [roomMembers, setRoomMembers] = useState<User[]>([]);
@@ -107,11 +109,20 @@ const Sidebar = ({ onSelect, activeSection }: SidebarProps) => {
   }, [roomId]);
 
   return (
-    <div className="w-64 bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-screen">
+    <div className={`bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-full ${className}`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-800/50 flex items-center gap-3">
-        <span className="text-2xl filter drop-shadow-md">🧳</span>
-        <h2 className="text-xl font-bold text-gray-100 tracking-tight">My Vault</h2>
+      <div className="p-6 border-b border-gray-800/50 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl filter drop-shadow-md">🧳</span>
+          <h2 className="text-xl font-bold text-gray-100 tracking-tight">My Vault</h2>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-8">
@@ -123,10 +134,13 @@ const Sidebar = ({ onSelect, activeSection }: SidebarProps) => {
           {sections.map((item) => (
             <button
               key={item.name}
-              onClick={() => onSelect(item.name)}
+              onClick={() => {
+                onSelect(item.name);
+                if (onClose) onClose();
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${activeSection === item.name
-                  ? "bg-blue-600/10 text-blue-400"
-                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                ? "bg-blue-600/10 text-blue-400"
+                : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
                 }`}
             >
               <span className={`text-lg transition-transform group-hover:scale-110 ${activeSection === item.name ? "opacity-100" : "opacity-70"}`}>

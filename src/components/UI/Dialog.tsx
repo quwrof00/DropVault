@@ -62,7 +62,7 @@ export function Dialog({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-100">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-100">
             <div
                 className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md animate-scale-in overflow-hidden"
                 role="dialog"

@@ -14,7 +14,7 @@ export function Navbar() {
   async function handleSignOut() {
     setIsSigningOut(true);
     setError(null);
-    
+
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -52,7 +52,7 @@ export function Navbar() {
                 </svg>
               </div>
               <span className="font-medium">{success}</span>
-              <button 
+              <button
                 onClick={() => setSuccess(null)}
                 className="ml-2 text-emerald-200 hover:text-white transition-colors p-1"
               >
@@ -70,7 +70,7 @@ export function Navbar() {
                 </svg>
               </div>
               <span className="font-medium">{error}</span>
-              <button 
+              <button
                 onClick={() => setError(null)}
                 className="ml-2 text-rose-200 hover:text-white transition-colors p-1"
               >
@@ -87,10 +87,10 @@ export function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left side - Logo and main nav */}
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-4 md:space-x-8">
               <button
                 onClick={() => navigate("/")}
-                className="group text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white via-emerald-200 to-cyan-200 bg-clip-text text-transparent hover:from-emerald-300 hover:via-cyan-300 hover:to-blue-300 transition-all duration-300 transform hover:scale-105"
+                className="group text-xl md:text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white via-emerald-200 to-cyan-200 bg-clip-text text-transparent hover:from-emerald-300 hover:via-cyan-300 hover:to-blue-300 transition-all duration-300 transform hover:scale-105"
               >
                 DROPVAULT
                 <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-300 mt-1 mx-auto"></div>
@@ -99,7 +99,7 @@ export function Navbar() {
               {user && (
                 <div className="flex items-center space-x-1">
                   <div className="w-px h-6 bg-slate-600"></div>
-                  
+
                   <button
                     onClick={() => navigate("/main")}
                     className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-emerald-300 font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 group"
@@ -107,9 +107,9 @@ export function Navbar() {
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span>Vault</span>
+                    <span className="hidden sm:inline">Vault</span>
                   </button>
-                  
+
                   <button
                     onClick={() => navigate("/rooms")}
                     className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-cyan-300 font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 group"
@@ -117,10 +117,10 @@ export function Navbar() {
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span>Rooms</span>
+                    <span className="hidden sm:inline">Rooms</span>
                   </button>
-                  
-                  
+
+
                 </div>
               )}
             </div>
@@ -136,11 +136,11 @@ export function Navbar() {
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span>Dashboard</span>
+                    <span className="hidden sm:inline">Dashboard</span>
                   </button>
-                  
+
                   <div className="w-px h-6 bg-slate-600"></div>
-                  
+
                   <button
                     onClick={handleSignOut}
                     disabled={isSigningOut}
@@ -150,14 +150,14 @@ export function Navbar() {
                       {isSigningOut ? (
                         <>
                           <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-                          <span>Signing Out...</span>
+                          <span className="hidden sm:inline">Signing Out...</span>
                         </>
                       ) : (
                         <>
                           <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                           </svg>
-                          <span>Sign Out</span>
+                          <span className="hidden sm:inline">Sign Out</span>
                         </>
                       )}
                     </div>

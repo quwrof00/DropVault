@@ -6,22 +6,11 @@ import Editor from "../Editor/Editor";
 import CollabEditor from "../CollabEditor";
 import { encrypt, decrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
-
 import { Dialog, type DialogProps } from "../UI/Dialog";
 
 interface User {
   id: string;
 }
-
-// interface Note {
-//   user_id: string;
-//   title: string;
-//   room_id: string | null;
-//   ciphertext: string;
-//   iv: string;
-//   salt: string;
-//   updated_at: string;
-// }
 
 type NotesProps = {
   roomId?: string | null;
@@ -34,7 +23,6 @@ interface NoteRow {
   salt: string | null;
   updated_at: string | null;
 }
-
 
 export default function Notes({ roomId }: NotesProps) {
   const user = useAuthUser() as User | null | undefined;
@@ -50,6 +38,9 @@ export default function Notes({ roomId }: NotesProps) {
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+
+  // Mobile sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
@@ -568,16 +559,6 @@ export default function Notes({ roomId }: NotesProps) {
   // Get all file paths (excluding placeholders) for SubSidebar to build tree
   const allFilePaths = Object.keys(files);
 
-  // Folders = entries ending with /.placeholder (strip the placeholder)
-  // const folderPaths = allFilePaths
-  //   .filter(path => path.endsWith('/.placeholder'))
-  //   .map(path => path.replace('/.placeholder', ''));
-
-  // // Files = everything except placeholder entries
-  // const filePaths = allFilePaths
-  //   .filter(path => !path.endsWith('/.placeholder'));
-
-
   if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-4rem)] bg-gray-700 rounded-lg shadow-lg items-center justify-center">
@@ -590,7 +571,7 @@ export default function Notes({ roomId }: NotesProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-gray-700 rounded-lg shadow-lg overflow-hidden transition-all duration-300">
+    <div className="flex flex-col md:flex-row h-full bg-gray-700 rounded-lg shadow-lg overflow-hidden transition-all duration-300 relative">
       {error && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-slideDown">
           <span className="text-sm">{error}</span>
@@ -611,7 +592,10 @@ export default function Notes({ roomId }: NotesProps) {
         items={allFilePaths}
         onCreate={handleNewFile}
         onCreateFolder={handleNewFolder}
-        onSelect={handleFileSelect}
+        onSelect={(file) => {
+          handleFileSelect(file);
+          setIsSidebarOpen(false); // Close sidebar on selection (mobile)
+        }}
         onRename={handleRename}
         onDelete={handleDelete}
         currentItem={currentFile}
@@ -619,19 +603,33 @@ export default function Notes({ roomId }: NotesProps) {
         isCreating={isCreating}
         currentFolder={currentFolder}
         onFolderChange={setCurrentFolder}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden bg-gray-700 transition-all duration-300">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 flex items-center space-x-3">
-            <span>{currentFile ? currentFile.split('/').pop() : "No Note Selected"}</span>
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu Trigger */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 flex items-center space-x-3">
+              <span>{currentFile ? currentFile.split('/').pop() : "No Note Selected"}</span>
+            </h2>
+
             {isSaving && !roomId && (
-              <div className="flex items-center space-x-2 text-blue-400">
+              <div className="flex items-center space-x-2 text-blue-400 ml-4">
                 <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm font-normal">Saving...</span>
               </div>
             )}
-          </h2>
+          </div>
 
           {roomId && (
             <div className="bg-blue-600/20 text-blue-300 px-3 py-1 rounded-full text-sm font-medium border border-blue-600/30">

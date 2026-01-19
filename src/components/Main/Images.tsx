@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase-client"
 import { useAuthUser } from "../../hooks/useAuthUser"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { Dialog, type DialogProps } from "../UI/Dialog"
 
 type FileEntry = {
   name: string
@@ -58,6 +59,7 @@ export default function Images({ roomId }: ImagesProps) {
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
 
   const prefixes = useMemo(() => {
     if (!user) return { primary: "", legacy: "" }
@@ -78,16 +80,16 @@ export default function Images({ roomId }: ImagesProps) {
   }
 
   const toggleSelect = (name: string) => {
-  setSelectedFiles(prev => {
-    const next = new Set(prev);
-    next.has(name) ? next.delete(name) : next.add(name);
-    return next;
-  });
-};
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
 
 
 
-const isSelected = (name: string) => selectedFiles.has(name);
+  const isSelected = (name: string) => selectedFiles.has(name);
 
   // Fetch files from Supabase Storage
   useEffect(() => {
@@ -98,44 +100,20 @@ const isSelected = (name: string) => selectedFiles.has(name);
     }
 
     let cancelled = false
-    ;(async () => {
-      setIsLoading(true)
-      try {
-        const mergedFiles: { [key: string]: FileEntry } = {}
+      ; (async () => {
+        setIsLoading(true)
+        try {
+          const mergedFiles: { [key: string]: FileEntry } = {}
 
-        // List primary prefix first
-        const { data: primaryList, error: primaryErr } = await supabase.storage.from(BUCKET).list(prefixes.primary)
-        if (primaryErr && primaryErr.message !== 'The resource was not found') {
-          console.error("Failed to list primary prefix", primaryErr)
-        } else if (primaryList) {
-          primaryList.forEach((file) => {
-            const fileName = file.name
-            if (isImageFile(fileName)) {
-              const publicUrl = makePublicUrl(prefixes.primary, fileName)
-              mergedFiles[fileName] = {
-                name: fileName,
-                blob: new Blob(),
-                uploaded: true,
-                lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
-                progress: 100,
-                url: publicUrl,
-                previewUrl: publicUrl,
-                pathPrefix: prefixes.primary,
-              }
-            }
-          })
-        }
-
-        // Optionally list legacy and merge (skip duplicates, prefer primary)
-        if (INCLUDE_LEGACY_LISTING && prefixes.legacy && prefixes.legacy !== prefixes.primary) {
-          const { data: legacyList, error: legacyErr } = await supabase.storage.from(BUCKET).list(prefixes.legacy)
-          if (legacyErr && legacyErr.message !== 'The resource was not found') {
-            console.error("Failed to list legacy prefix", legacyErr)
-          } else if (legacyList) {
-            legacyList.forEach((file) => {
+          // List primary prefix first
+          const { data: primaryList, error: primaryErr } = await supabase.storage.from(BUCKET).list(prefixes.primary)
+          if (primaryErr && primaryErr.message !== 'The resource was not found') {
+            console.error("Failed to list primary prefix", primaryErr)
+          } else if (primaryList) {
+            primaryList.forEach((file) => {
               const fileName = file.name
-              if (isImageFile(fileName) && !mergedFiles[fileName]) {
-                const publicUrl = makePublicUrl(prefixes.legacy, fileName)
+              if (isImageFile(fileName)) {
+                const publicUrl = makePublicUrl(prefixes.primary, fileName)
                 mergedFiles[fileName] = {
                   name: fileName,
                   blob: new Blob(),
@@ -144,20 +122,44 @@ const isSelected = (name: string) => selectedFiles.has(name);
                   progress: 100,
                   url: publicUrl,
                   previewUrl: publicUrl,
-                  pathPrefix: prefixes.legacy,
+                  pathPrefix: prefixes.primary,
                 }
               }
             })
           }
-        }
 
-        if (!cancelled) {
-          setFiles(mergedFiles)
+          // Optionally list legacy and merge (skip duplicates, prefer primary)
+          if (INCLUDE_LEGACY_LISTING && prefixes.legacy && prefixes.legacy !== prefixes.primary) {
+            const { data: legacyList, error: legacyErr } = await supabase.storage.from(BUCKET).list(prefixes.legacy)
+            if (legacyErr && legacyErr.message !== 'The resource was not found') {
+              console.error("Failed to list legacy prefix", legacyErr)
+            } else if (legacyList) {
+              legacyList.forEach((file) => {
+                const fileName = file.name
+                if (isImageFile(fileName) && !mergedFiles[fileName]) {
+                  const publicUrl = makePublicUrl(prefixes.legacy, fileName)
+                  mergedFiles[fileName] = {
+                    name: fileName,
+                    blob: new Blob(),
+                    uploaded: true,
+                    lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
+                    progress: 100,
+                    url: publicUrl,
+                    previewUrl: publicUrl,
+                    pathPrefix: prefixes.legacy,
+                  }
+                }
+              })
+            }
+          }
+
+          if (!cancelled) {
+            setFiles(mergedFiles)
+          }
+        } finally {
+          if (!cancelled) setIsLoading(false)
         }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
+      })()
 
     return () => {
       cancelled = true
@@ -190,7 +192,7 @@ const isSelected = (name: string) => selectedFiles.has(name);
     if (!user) return
 
     const path = roomId ? `room-${roomId}/${fileEntry.name}` : `${user.id}/${fileEntry.name}`
-    
+
     setUploadingFiles(prev => new Set(prev).add(fileEntry.name))
 
     try {
@@ -237,7 +239,7 @@ const isSelected = (name: string) => selectedFiles.has(name);
           },
         }))
         // Better error notification
-        const errorMsg = uploadError.message.includes('already exists') 
+        const errorMsg = uploadError.message.includes('already exists')
           ? 'A file with this name already exists'
           : uploadError.message
         alert(`Upload failed: ${errorMsg}`)
@@ -263,127 +265,94 @@ const isSelected = (name: string) => selectedFiles.has(name);
 
   // ---------- helpers ----------
 
-const sanitizeFileName = (name: string) => {
-  const extIndex = name.lastIndexOf(".")
-  const base = extIndex !== -1 ? name.slice(0, extIndex) : name
-  const ext = extIndex !== -1 ? name.slice(extIndex) : ""
+  const sanitizeFileName = (name: string) => {
+    const extIndex = name.lastIndexOf(".")
+    const base = extIndex !== -1 ? name.slice(0, extIndex) : name
+    const ext = extIndex !== -1 ? name.slice(extIndex) : ""
 
-  const sanitizedBase = base
-    .replace(/[^a-zA-Z0-9 _-]/g, "_") // remove special chars
-    .replace(/\s+/g, " ")            // normalize spaces
-    .replace(/_+/g, "_")             // collapse underscores
-    .trim()
-    .replace(/^_+|_+$/g, "")         // trim underscores
+    const sanitizedBase = base
+      .replace(/[^a-zA-Z0-9 _-]/g, "_") // remove special chars
+      .replace(/\s+/g, " ")            // normalize spaces
+      .replace(/_+/g, "_")             // collapse underscores
+      .trim()
+      .replace(/^_+|_+$/g, "")         // trim underscores
 
-  return `${sanitizedBase || "file"}${ext}`
-}
-
-const getSafeUniqueName = (
-  originalName: string,
-  existing: Record<string, any>
-) => {
-  const sanitized = sanitizeFileName(originalName)
-
-  if (!existing[sanitized]) return sanitized
-
-  const extIndex = sanitized.lastIndexOf(".")
-  const base = extIndex !== -1 ? sanitized.slice(0, extIndex) : sanitized
-  const ext = extIndex !== -1 ? sanitized.slice(extIndex) : ""
-
-  let i = 1
-  let newName = `${base} (${i})${ext}`
-
-  while (existing[newName]) {
-    i++
-    newName = `${base} (${i})${ext}`
+    return `${sanitizedBase || "file"}${ext}`
   }
 
-  return newName
-}
-const handleBulkDelete = async () => {
-  if (selectedFiles.size === 0) return;
+  const getSafeUniqueName = (
+    originalName: string,
+    existing: Record<string, any>
+  ) => {
+    const sanitized = sanitizeFileName(originalName)
 
-  const ok = window.confirm(
-    `Delete ${selectedFiles.size} file(s)? This cannot be undone.`
-  );
+    if (!existing[sanitized]) return sanitized
 
-  if (!ok) return;
-  const names = Array.from(selectedFiles);
+    const extIndex = sanitized.lastIndexOf(".")
+    const base = extIndex !== -1 ? sanitized.slice(0, extIndex) : sanitized
+    const ext = extIndex !== -1 ? sanitized.slice(extIndex) : ""
 
-  // 1️⃣ Delete from storage
-  const { error } = await supabase.storage
-    .from("user-images")
-    .remove(names.map(n => `${user?.id}/${n}`));
+    let i = 1
+    let newName = `${base} (${i})${ext}`
 
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  // 2️⃣ Update UI immediately
-  setFiles(prev => {
-    const next = { ...prev };
-    names.forEach(n => delete next[n]);
-    return next;
-  });
-
-  setSelectedFiles(new Set());
-};
-
-
-
-// ---------- main ----------
-
-const processFiles = async (fileList: FileList) => {
-  if (!user) return
-
-  const validFiles: File[] = []
-  const errors: string[] = []
-
-  for (const file of Array.from(fileList)) {
-    if (!isImageFile(file.name)) {
-      errors.push(`"${file.name}" is not a valid image file`)
-      continue
+    while (existing[newName]) {
+      i++
+      newName = `${base} (${i})${ext}`
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      errors.push(`"${file.name}" is too large (max 10MB)`)
-      continue
+    return newName
+  }
+
+  const processFiles = async (fileList: FileList) => {
+    if (!user) return
+
+    const validFiles: File[] = []
+    const errors: string[] = []
+
+    for (const file of Array.from(fileList)) {
+      if (!isImageFile(file.name)) {
+        errors.push(`"${file.name}" is not a valid image file`)
+        continue
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        errors.push(`"${file.name}" is too large (max 10MB)`)
+        continue
+      }
+
+      const safeName = getSafeUniqueName(file.name, files)
+
+      const finalFile =
+        safeName === file.name
+          ? file
+          : new File([file], safeName, { type: file.type })
+
+      validFiles.push(finalFile)
     }
 
-    const safeName = getSafeUniqueName(file.name, files)
-
-    const finalFile =
-      safeName === file.name
-        ? file
-        : new File([file], safeName, { type: file.type })
-
-    validFiles.push(finalFile)
-  }
-
-  if (errors.length > 0) {
-    alert(`Some files could not be uploaded:\n${errors.join("\n")}`)
-  }
-
-  for (const file of validFiles) {
-    const newEntry: FileEntry = {
-      name: file.name,
-      blob: file,
-      uploaded: false,
-      lastModified: file.lastModified,
-      progress: 0,
-      previewUrl: URL.createObjectURL(file),
-      pathPrefix: prefixes.primary,
+    if (errors.length > 0) {
+      alert(`Some files could not be uploaded:\n${errors.join("\n")}`)
     }
 
-    setFiles(prev => ({
-      ...prev,
-      [file.name]: newEntry,
-    }))
+    for (const file of validFiles) {
+      const newEntry: FileEntry = {
+        name: file.name,
+        blob: file,
+        uploaded: false,
+        lastModified: file.lastModified,
+        progress: 0,
+        previewUrl: URL.createObjectURL(file),
+        pathPrefix: prefixes.primary,
+      }
 
-    await uploadToSupabase(newEntry)
+      setFiles(prev => ({
+        ...prev,
+        [file.name]: newEntry,
+      }))
+
+      await uploadToSupabase(newEntry)
+    }
   }
-}
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files
@@ -396,10 +365,10 @@ const processFiles = async (fileList: FileList) => {
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragOver(false)
-    
+
     const fileList = e.dataTransfer.files
     if (!fileList || fileList.length === 0) return
-    
+
     await processFiles(fileList)
   }
 
@@ -416,26 +385,90 @@ const processFiles = async (fileList: FileList) => {
     }
   }
 
-  const handleDelete = async (fileName: string) => {
-    if (!user || !confirm(`Delete "${fileName}"?`)) return
-    const entry = files[fileName]
-    const prefix = entry?.pathPrefix || prefixes.primary
+  // Dialog Helpers
+  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
 
-    const { error } = await supabase.storage.from(BUCKET).remove([`${prefix}/${fileName}`])
-    if (error) {
-      alert(`Failed to delete file "${fileName}": ${error.message}`)
-      return
-    }
+  const handleDelete = (fileName: string) => {
+    if (!user) return;
 
-    setFiles((prev) => {
-      const updated = { ...prev }
-      if (updated[fileName]?.previewUrl?.startsWith("blob:")) {
-        URL.revokeObjectURL(updated[fileName].previewUrl!)
+    setDialog({
+      isOpen: true,
+      title: "Delete Image",
+      message: `Are you sure you want to delete "${fileName}"?`,
+      type: "confirm",
+      confirmText: "Delete",
+      variant: "danger",
+      onConfirm: async () => {
+        const entry = files[fileName];
+        const prefix = entry?.pathPrefix || prefixes.primary;
+
+        const { error } = await supabase.storage.from(BUCKET).remove([`${prefix}/${fileName}`]);
+        if (error) {
+          alert(`Failed to delete file "${fileName}": ${error.message}`);
+          closeDialog();
+          return;
+        }
+
+        setFiles((prev) => {
+          const updated = { ...prev };
+          if (updated[fileName]?.previewUrl?.startsWith("blob:")) {
+            URL.revokeObjectURL(updated[fileName].previewUrl!);
+          }
+          delete updated[fileName];
+          return updated;
+        });
+        closeDialog();
       }
-      delete updated[fileName]
-      return updated
-    })
-  }
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedFiles.size === 0) return;
+
+    setDialog({
+      isOpen: true,
+      title: "Delete Selected Images",
+      message: `Delete ${selectedFiles.size} image(s)? This cannot be undone.`,
+      type: "confirm",
+      confirmText: "Delete All",
+      variant: "danger",
+      onConfirm: async () => {
+        const names = Array.from(selectedFiles);
+
+        // 1️⃣ Delete from storage
+        const { error } = await supabase.storage
+          .from("user-images")
+          .remove(names.map(n => {
+            const entry = files[n];
+            const prefix = entry?.pathPrefix || prefixes.primary;
+            return `${prefix}/${n}`;
+          }));
+
+        if (error) {
+          console.error(error);
+          alert("Failed to delete some images.");
+          closeDialog();
+          return;
+        }
+
+        // 2️⃣ Update UI immediately
+        setFiles(prev => {
+          const next = { ...prev };
+          names.forEach(n => {
+            if (next[n]?.previewUrl?.startsWith("blob:")) {
+              URL.revokeObjectURL(next[n].previewUrl!);
+            }
+            delete next[n];
+          });
+          return next;
+        });
+
+        setSelectedFiles(new Set());
+        closeDialog();
+      }
+    });
+  };
+
 
   const handleRename = async (oldName: string, newNameInput: string) => {
     if (!user) return
@@ -524,10 +557,16 @@ const processFiles = async (fileList: FileList) => {
     .sort(([, a], [, b]) => b.lastModified - a.lastModified)
 
   return (
-    <div className="p-6 space-y-6 bg-gray-800 rounded-xl shadow-xl">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 bg-gray-800 rounded-xl shadow-xl">
+      <Dialog
+        onClose={closeDialog}
+        {...dialog}
+        isOpen={dialog.isOpen}
+        title={dialog.title || ""}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">
+        <h2 className="text-xl sm:text-2xl font-bold text-white">
           {roomId ? `Room Images` : 'My Images'}
         </h2>
         <div className="text-sm text-gray-400">
@@ -537,27 +576,26 @@ const processFiles = async (fileList: FileList) => {
 
       {/* Upload Area */}
       <div
-        className={`relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 ${
-          dragOver 
-            ? 'border-blue-400 bg-blue-900/20' 
-            : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
-        }`}
+        className={`relative border-2 border-dashed rounded-xl p-4 sm:p-8 transition-all duration-300 ${dragOver
+          ? 'border-blue-400 bg-blue-900/20'
+          : 'border-gray-600 hover:border-gray-500 bg-gray-700/50'
+          }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 mx-auto text-gray-400">
+        <div className="text-center space-y-3 sm:space-y-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto text-gray-400">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
           </div>
           <div>
-            <p className="text-gray-300 text-lg font-medium">
+            <p className="text-gray-300 text-base sm:text-lg font-medium">
               {dragOver ? 'Drop your images here' : 'Upload Images'}
             </p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-500 text-xs sm:text-sm mt-1">
               Drag & drop images or click to browse
             </p>
           </div>
@@ -569,14 +607,14 @@ const processFiles = async (fileList: FileList) => {
               onChange={handleFileChange}
               className="hidden"
             />
-            <span className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 cursor-pointer">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span className="inline-flex items-center px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 cursor-pointer text-sm sm:text-base">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               Choose Files
             </span>
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-[10px] sm:text-xs text-gray-500">
             PNG, JPG, GIF, SVG, WEBP up to 10MB
           </p>
         </div>
@@ -613,7 +651,7 @@ const processFiles = async (fileList: FileList) => {
         <div className="text-center py-12">
           <div className="w-16 h-16 mx-auto text-gray-500 mb-4">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
@@ -627,59 +665,59 @@ const processFiles = async (fileList: FileList) => {
       )}
 
       {selectedFiles.size > 0 && (
-  <div className="sticky top-0 z-30 mb-4 flex items-center justify-between 
+        <div className="sticky top-0 z-30 mb-4 flex items-center justify-between 
                   bg-gray-800/90 backdrop-blur-md border border-gray-700 
-                  rounded-xl p-4">
-    <span className="text-sm text-gray-200">
-      {selectedFiles.size} selected
-    </span>
+                  rounded-xl p-3 sm:p-4">
+          <span className="text-sm text-gray-200">
+            {selectedFiles.size} selected
+          </span>
 
-    <div className="flex gap-2">
-      <button
-        onClick={() => setSelectedFiles(new Set())}
-        className="px-3 py-2 text-sm rounded-lg bg-gray-600 hover:bg-gray-500"
-      >
-        Clear
-      </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedFiles(new Set())}
+              className="px-3 py-2 text-sm rounded-lg bg-gray-600 hover:bg-gray-500"
+            >
+              Clear
+            </button>
 
-      <button
-        onClick={handleBulkDelete}
-        className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white"
-      >
-        Delete selected
-      </button>
-    </div>
-  </div>
-)}
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-2 sm:px-4 sm:py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete selected
+            </button>
+          </div>
+        </div>
+      )}
 
 
       {/* Image Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
         {filteredFiles.map(([name, file]) => (
           <div
-  key={name}
-  onClick={() => toggleSelect(name)}
-  className={`group rounded-xl shadow-lg transition-all duration-300 overflow-hidden border cursor-pointer
+            key={name}
+            onClick={() => toggleSelect(name)}
+            className={`group rounded-xl shadow-lg transition-all duration-300 overflow-hidden border cursor-pointer
     ${isSelected(name)
-      ? "bg-gray-800 border-blue-500 ring-2 ring-blue-500/40"
-      : "bg-gray-700 border-gray-600/50 hover:shadow-xl"
-    }`}
->
+                ? "bg-gray-800 border-blue-500 ring-2 ring-blue-500/40"
+                : "bg-gray-700 border-gray-600/50 hover:shadow-xl"
+              }`}
+          >
 
             <div className="relative aspect-square">
-  
-              <img 
-  src={file.url || file.previewUrl} 
-  alt={name} 
-  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
-  onClick={(e) => {
-    e.stopPropagation();
-    setSelectedImage(file.url || file.previewUrl || null);
-  }}
-  loading="lazy"
-/>
 
-              
+              <img
+                src={file.url || file.previewUrl}
+                alt={name}
+                className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedImage(file.url || file.previewUrl || null);
+                }}
+                loading="lazy"
+              />
+
+
               {/* Upload Progress Overlay */}
               {!file.uploaded && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -713,140 +751,140 @@ const processFiles = async (fileList: FileList) => {
             </div>
 
             <div className="p-4 space-y-3">
-  {renamingFile === name ? (
-    <div
-      className="space-y-2"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        type="text"
-        className="w-full p-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-        value={newFileName}
-        onChange={(e) => setNewFileName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            handleRename(name, newFileName.trim());
-          }
-          if (e.key === "Escape") {
-            setRenamingFile(null);
-            setNewFileName("");
-          }
-        }}
-        placeholder="Enter new name..."
-        autoFocus
-        onClick={(e) => e.stopPropagation()}
-      />
+              {renamingFile === name ? (
+                <div
+                  className="space-y-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="text"
+                    className="w-full p-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleRename(name, newFileName.trim());
+                      }
+                      if (e.key === "Escape") {
+                        setRenamingFile(null);
+                        setNewFileName("");
+                      }
+                    }}
+                    placeholder="Enter new name..."
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
 
-      <div className="flex gap-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRename(name, newFileName.trim());
-          }}
-          className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
-        >
-          Save
-        </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRename(name, newFileName.trim());
+                      }}
+                      className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+                    >
+                      Save
+                    </button>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setRenamingFile(null);
-            setNewFileName("");
-          }}
-          className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  ) : (
-    <>
-      <div className="space-y-1">
-        <h3 className="font-medium text-gray-200 truncate" title={name}>
-          {name}
-        </h3>
-        <p className="text-xs text-gray-500">
-          {formatFileSize(file.blob?.size || 0)}
-        </p>
-      </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamingFile(null);
+                        setNewFileName("");
+                      }}
+                      className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <h3 className="font-medium text-gray-200 truncate" title={name}>
+                      {name}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {formatFileSize(file.blob?.size || 0)}
+                    </p>
+                  </div>
 
-      {file.uploaded && (
-        <div className="flex gap-2">
-          <a
-            href={makePublicUrl(file.pathPrefix, name)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex-1 text-center bg-blue-600/20 text-blue-400 py-2 px-3 rounded-lg hover:bg-blue-600/30 transition-colors duration-200 text-sm font-medium"
-          >
-            Preview
-          </a>
+                  {file.uploaded && (
+                    <div className="flex gap-2">
+                      <a
+                        href={makePublicUrl(file.pathPrefix, name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 text-center bg-blue-600/20 text-blue-400 py-2 px-3 rounded-lg hover:bg-blue-600/30 transition-colors duration-200 text-sm font-medium"
+                      >
+                        Preview
+                      </a>
 
-          <a
-            href={makePublicUrl(file.pathPrefix, name)}
-            download={name}
-            onClick={(e) => e.stopPropagation()}
-            className="flex-1 text-center bg-green-600/20 text-green-400 py-2 px-3 rounded-lg hover:bg-green-600/30 transition-colors duration-200 text-sm font-medium"
-          >
-            Download
-          </a>
-        </div>
-      )}
+                      <a
+                        href={makePublicUrl(file.pathPrefix, name)}
+                        download={name}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 text-center bg-green-600/20 text-green-400 py-2 px-3 rounded-lg hover:bg-green-600/30 transition-colors duration-200 text-sm font-medium"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  )}
 
-      <div className="flex justify-between items-center pt-2 border-t border-gray-600">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setRenamingFile(name);
-            setNewFileName(getBaseName(name));
-          }}
-          className="p-2 text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-all duration-200"
-          title="Rename image"
-          disabled={!file.uploaded}
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-            />
-          </svg>
-        </button>
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-600">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamingFile(name);
+                        setNewFileName(getBaseName(name));
+                      }}
+                      className="p-2 text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-all duration-200"
+                      title="Rename image"
+                      disabled={!file.uploaded}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDelete(name);
-          }}
-          className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all duration-200"
-          title="Delete image"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-        </button>
-      </div>
-    </>
-  )}
-</div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(name);
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all duration-200"
+                      title="Delete image"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
 
           </div>
         ))}
@@ -854,14 +892,14 @@ const processFiles = async (fileList: FileList) => {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-4xl max-h-full">
-            <img 
-              src={selectedImage} 
-              alt="Preview" 
+            <img
+              src={selectedImage}
+              alt="Preview"
               className="max-w-full max-h-full object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />

@@ -98,7 +98,7 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="flex-1 min-h-[calc(100vh-4rem)] bg-gray-700 p-4 sm:p-6 lg:p-8">
+    <div className="flex-1 min-h-[calc(100vh-4rem)] bg-gray-900 p-4 sm:p-6 lg:p-8">
       {/* Helper Dialog */}
       <Dialog
         onClose={closeDialog}
@@ -150,7 +150,7 @@ export default function RoomsPage() {
       )}
 
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 sm:gap-0">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-100 tracking-tight">
             Your Rooms
           </h1>

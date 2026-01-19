@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase-client";
 import SubSidebar from "../PageHelpers/SubSidebar";
 import CodeEditor from "@uiw/react-textarea-code-editor";
 import Compiler from "../Compiler/Compiler";
+import { Dialog, type DialogProps } from "../UI/Dialog";
 
 const languages = [
   { label: "C", value: "c" },
@@ -36,6 +37,11 @@ export default function Codes({ roomId }: CodesProps) {
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Dialog State
+  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
+
   // Fetch snippets from Supabase
   useEffect(() => {
     if (user === undefined) return;
@@ -47,19 +53,19 @@ export default function Codes({ roomId }: CodesProps) {
     (async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         let query = supabase
           .from("codes")
           .select("title, code, language")
           .eq("user_id", user.id);
-        
+
         if (roomId) {
           query = query.eq("room_id", roomId);
         } else {
           query = query.is("room_id", null);
         }
-        
+
         const { data: supabaseData, error } = await query;
 
         if (error) {
@@ -161,129 +167,178 @@ export default function Codes({ roomId }: CodesProps) {
     setCurrentTitle(title);
     setCode(snippets[title].code);
     setError(null);
+    setIsSidebarOpen(false); // Close on mobile
   };
 
-  const handleNewSnippet = async () => {
-    if (!user) return;
+  // Dialog Helpers
+  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
 
-    const title = prompt("Enter a name for your snippet:");
-    if (!title || !title.trim()) return;
-    
-    const trimmedTitle = title.trim();
-    if (snippets[trimmedTitle]) {
-      alert(`Snippet with title "${trimmedTitle}" already exists!`);
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      const { error } = await supabase.from("codes").insert({
-        user_id: user.id,
-        title: trimmedTitle,
-        code: "",
-        language: "javascript",
-        room_id: roomId ?? null,
-      });
-
-      if (error) {
-        console.error("Failed to create snippet:", error);
-        alert(`Failed to create snippet: ${error.message}`);
-        return;
-      }
-
-      const newSnippet = { code: "", language: "javascript" };
-      setSnippets((prev) => ({ ...prev, [trimmedTitle]: newSnippet }));
-      setCurrentTitle(trimmedTitle);
-      setCode("");
-      setError(null);
-    } catch (err) {
-      console.error("Error creating snippet:", err);
-      alert("Failed to create snippet. Please try again.");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleDelete = async (title: string) => {
-    if (!user || !confirm(`Delete "${title}"?`)) return;
-
-    const deleteQuery = supabase
-      .from("codes")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("title", title);
-
-    if (roomId) {
-      deleteQuery.eq("room_id", roomId);
-    } else {
-      deleteQuery.is("room_id", null);
-    }
-
-    const { error } = await deleteQuery;
-
-    if (error) {
-      alert(`Failed to delete snippet "${title}": ${error.message}`);
-      return;
-    }
-
-    const updated = { ...snippets };
-    delete updated[title];
-    setSnippets(updated);
-
-    if (title === currentTitle) {
-      const next = Object.keys(updated)[0] || "";
-      setCurrentTitle(next);
-      setCode(updated[next]?.code || "");
-    }
-    setError(null);
-  };
-
-  const handleRename = async (title: string) => {
-    if (!user) return;
-
-    const newTitle = prompt("Enter new title:", title);
-    if (!newTitle || !newTitle.trim() || newTitle.trim() === title) return;
-    
-    const trimmedTitle = newTitle.trim();
-    if (snippets[trimmedTitle]) {
-      alert(`Snippet with title "${trimmedTitle}" already exists!`);
-      return;
-    }
-
-    const updateQuery = supabase
-      .from("codes")
-      .update({ title: trimmedTitle })
-      .eq("user_id", user.id)
-      .eq("title", title);
-
-    if (roomId) {
-      updateQuery.eq("room_id", roomId);
-    } else {
-      updateQuery.is("room_id", null);
-    }
-
-    const { error } = await updateQuery;
-
-    if (error) {
-      alert(`Failed to rename snippet "${title}": ${error.message}`);
-      return;
-    }
-
-    setSnippets((prev) => {
-      const updated: { [key: string]: Snippet } = {};
-      Object.keys(prev).forEach((key) => {
-        updated[key === title ? trimmedTitle : key] = prev[key];
-      });
-      return updated;
+  const showAlert = (message: string) => {
+    setDialog({
+      isOpen: true,
+      title: "Alert",
+      message,
+      type: "alert",
+      onConfirm: closeDialog
     });
+  };
 
-    if (title === currentTitle) setCurrentTitle(trimmedTitle);
-    setError(null);
+  const handleNewSnippet = () => {
+    if (!user) return;
+
+    setDialog({
+      isOpen: true,
+      title: "New Snippet",
+      message: "Enter a name for your snippet:",
+      type: "input",
+      placeholder: "Snippet Name",
+      confirmText: "Create",
+      onConfirm: async (title) => {
+        if (!title || !title.trim()) return;
+
+        const trimmedTitle = title.trim();
+        if (snippets[trimmedTitle]) {
+          showAlert(`Snippet with title "${trimmedTitle}" already exists!`);
+          return;
+        }
+
+        setIsCreating(true);
+        try {
+          const { error } = await supabase.from("codes").insert({
+            user_id: user.id,
+            title: trimmedTitle,
+            code: "",
+            language: "javascript",
+            room_id: roomId ?? null,
+          });
+
+          if (error) {
+            console.error("Failed to create snippet:", error);
+            showAlert(`Failed to create snippet: ${error.message}`);
+            return;
+          }
+
+          const newSnippet = { code: "", language: "javascript" };
+          setSnippets((prev) => ({ ...prev, [trimmedTitle]: newSnippet }));
+          setCurrentTitle(trimmedTitle);
+          setCode("");
+          setError(null);
+          closeDialog();
+        } catch (err) {
+          console.error("Error creating snippet:", err);
+          showAlert("Failed to create snippet. Please try again.");
+        } finally {
+          setIsCreating(false);
+        }
+      }
+    });
+  };
+
+  const handleDelete = (title: string) => {
+    if (!user) return;
+
+    setDialog({
+      isOpen: true,
+      title: "Delete Snippet",
+      message: `Are you sure you want to delete "${title}"?`,
+      type: "confirm",
+      confirmText: "Delete",
+      variant: "danger",
+      onConfirm: async () => {
+        const deleteQuery = supabase
+          .from("codes")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("title", title);
+
+        if (roomId) {
+          deleteQuery.eq("room_id", roomId);
+        } else {
+          deleteQuery.is("room_id", null);
+        }
+
+        const { error } = await deleteQuery;
+
+        if (error) {
+          showAlert(`Failed to delete snippet "${title}": ${error.message}`);
+          return;
+        }
+
+        const updated = { ...snippets };
+        delete updated[title];
+        setSnippets(updated);
+
+        if (title === currentTitle) {
+          const next = Object.keys(updated)[0] || "";
+          setCurrentTitle(next);
+          setCode(updated[next]?.code || "");
+        }
+        setError(null);
+        closeDialog();
+      }
+    });
+  };
+
+
+  const handleRename = (title: string) => {
+    if (!user) return;
+
+    setDialog({
+      isOpen: true,
+      title: "Rename Snippet",
+      message: "Enter new title:",
+      type: "input",
+      defaultValue: title,
+      confirmText: "Rename",
+      onConfirm: async (newTitle) => {
+        if (!newTitle || !newTitle.trim() || newTitle.trim() === title) {
+          closeDialog();
+          return;
+        }
+
+        const trimmedTitle = newTitle.trim();
+        if (snippets[trimmedTitle]) {
+          showAlert(`Snippet with title "${trimmedTitle}" already exists!`);
+          return;
+        }
+
+        const updateQuery = supabase
+          .from("codes")
+          .update({ title: trimmedTitle })
+          .eq("user_id", user.id)
+          .eq("title", title);
+
+        if (roomId) {
+          updateQuery.eq("room_id", roomId);
+        } else {
+          updateQuery.is("room_id", null);
+        }
+
+        const { error } = await updateQuery;
+
+        if (error) {
+          showAlert(`Failed to rename snippet "${title}": ${error.message}`);
+          return;
+        }
+
+        setSnippets((prev) => {
+          const updated: { [key: string]: Snippet } = {};
+          Object.keys(prev).forEach((key) => {
+            updated[key === title ? trimmedTitle : key] = prev[key];
+          });
+          return updated;
+        });
+
+        if (title === currentTitle) setCurrentTitle(trimmedTitle);
+        setError(null);
+        closeDialog();
+      }
+    });
   };
 
   const handleLanguageChange = async (language: string) => {
     if (!currentTitle || !user) return;
-    
+
     try {
       // Update local state immediately for better UX
       setSnippets((prev) => ({
@@ -329,7 +384,7 @@ export default function Codes({ roomId }: CodesProps) {
     .sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-gray-700 rounded-lg shadow-lg overflow-hidden transition-all duration-300">
+    <div className="flex flex-col md:flex-row h-full bg-gray-700 rounded-lg shadow-lg overflow-hidden transition-all duration-300 relative">
       {/* Error Banner */}
       {error && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 animate-slideDown">
@@ -337,7 +392,7 @@ export default function Codes({ roomId }: CodesProps) {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
           <span className="text-sm">{error}</span>
-          <button 
+          <button
             onClick={() => setError(null)}
             className="ml-2 text-red-200 hover:text-white transition-colors"
           >
@@ -345,6 +400,14 @@ export default function Codes({ roomId }: CodesProps) {
           </button>
         </div>
       )}
+
+      {/* Dialog */}
+      <Dialog
+        onClose={closeDialog}
+        {...dialog}
+        isOpen={dialog.isOpen}
+        title={dialog.title || ""}
+      />
 
       {/* Collapsible Sidebar */}
       <SubSidebar
@@ -358,13 +421,25 @@ export default function Codes({ roomId }: CodesProps) {
         currentItem={currentTitle}
         typeLabel="Snippet"
         isCreating={isCreating}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       {/* Editor Area */}
       <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 overflow-auto bg-gray-700 transition-all duration-300">
         {/* Header with controls */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-3">
+            {/* Mobile Menu Trigger */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden text-gray-400 hover:text-white p-1 rounded-md hover:bg-gray-600 flex-shrink-0"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
             <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 truncate">
               {currentTitle || "No Snippet Selected"}
             </h2>
@@ -383,7 +458,7 @@ export default function Codes({ roomId }: CodesProps) {
                 Room Snippets
               </div>
             )}
-            
+
             {/* Language selector */}
             <div className="relative">
               <select
@@ -493,4 +568,3 @@ export default function Codes({ roomId }: CodesProps) {
     </div>
   );
 }
-
