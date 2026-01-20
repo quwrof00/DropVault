@@ -10,7 +10,7 @@ export interface DialogProps {
     type?: "alert" | "confirm" | "input";
     confirmText?: string;
     cancelText?: string;
-    onConfirm?: (value?: string) => void;
+    onConfirm?: (value?: string) => void | Promise<void>;
     isLoading?: boolean;
     variant?: "default" | "danger";
     defaultValue?: string;
@@ -32,6 +32,7 @@ export function Dialog({
     defaultValue = "",
     placeholder = "",
 }: DialogProps) {
+    const [localIsLoading, setLocalIsLoading] = useState(false);
     const [inputValue, setInputValue] = useState(defaultValue);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,20 +47,26 @@ export function Dialog({
 
     if (!isOpen) return null;
 
-    const handleConfirm = () => {
-        if (type === "input") {
-            if (onConfirm) onConfirm(inputValue);
-        } else {
-            if (onConfirm) onConfirm();
+    const handleConfirm = async () => {
+        setLocalIsLoading(true);
+        try {
+            if (type === "input") {
+                if (onConfirm) await onConfirm(inputValue);
+            } else {
+                if (onConfirm) await onConfirm();
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLocalIsLoading(false);
         }
-        // For alert, usually we just close. For others, let parent decide? 
-        // Usually standard implementation is to verify input then close.
-        // If onConfirm is async, parent handles closing.
-        // But here we'll assume parent closes or we close if type is alert.
+
         if (type === 'alert' && !onConfirm) {
             onClose();
         }
     };
+
+    const isBusy = isLoading || localIsLoading;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-gray-100">
@@ -73,7 +80,7 @@ export function Dialog({
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-white transition-colors"
-                        disabled={isLoading}
+                        disabled={isBusy}
                     >
                         <X size={20} />
                     </button>
@@ -91,9 +98,10 @@ export function Dialog({
                             onChange={(e) => setInputValue(e.target.value)}
                             placeholder={placeholder}
                             className="w-full p-2 rounded-lg bg-gray-900 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                            disabled={isBusy}
                             onKeyDown={(e) => {
-                                if (e.key === "Enter") handleConfirm();
-                                if (e.key === "Escape") onClose();
+                                if (e.key === "Enter" && !isBusy) handleConfirm();
+                                if (e.key === "Escape" && !isBusy) onClose();
                             }}
                         />
                     )}
@@ -104,7 +112,7 @@ export function Dialog({
                         <button
                             onClick={onClose}
                             className="px-4 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors text-sm font-medium"
-                            disabled={isLoading}
+                            disabled={isBusy}
                         >
                             {cancelText}
                         </button>
@@ -112,16 +120,16 @@ export function Dialog({
 
                     <button
                         onClick={handleConfirm}
-                        disabled={isLoading || (type === "input" && !inputValue.trim())}
+                        disabled={isBusy || (type === "input" && !inputValue.trim())}
                         className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors flex items-center gap-2
               ${variant === "danger"
                                 ? "bg-red-600 hover:bg-red-700"
                                 : "bg-blue-600 hover:bg-blue-700"
                             }
-              ${isLoading || (type === "input" && !inputValue.trim()) ? "opacity-50 cursor-not-allowed" : ""}
+              ${isBusy || (type === "input" && !inputValue.trim()) ? "opacity-50 cursor-not-allowed" : ""}
             `}
                     >
-                        {isLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                        {isBusy && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                         {confirmText}
                     </button>
                 </div>

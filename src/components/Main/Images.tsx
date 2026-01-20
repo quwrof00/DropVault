@@ -469,9 +469,13 @@ export default function Images({ roomId }: ImagesProps) {
     });
   };
 
+  // ...
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const handleRename = async (oldName: string, newNameInput: string) => {
     if (!user) return
+    if (isRenaming) return;
+
     if (!newNameInput || newNameInput === oldName) {
       setRenamingFile(null)
       setNewFileName("")
@@ -499,57 +503,64 @@ export default function Images({ roomId }: ImagesProps) {
       return
     }
 
-    const oldEntry = files[oldName]
-    const prefix = oldEntry?.pathPrefix || prefixes.primary
-    const oldPath = `${prefix}/${oldName}`
-    const newPath = `${prefix}/${newName}`
+    setIsRenaming(true);
+    try {
+      const oldEntry = files[oldName]
+      const prefix = oldEntry?.pathPrefix || prefixes.primary
+      const oldPath = `${prefix}/${oldName}`
+      const newPath = `${prefix}/${newName}`
 
-    const { data: downloadData, error: downloadError } = await supabase.storage.from(BUCKET).download(oldPath)
-    if (downloadError || !downloadData) {
-      console.error("Download error:", downloadError)
-      alert("Failed to download file for renaming")
-      return
-    }
-
-    const { error: uploadError } = await supabase.storage.from(BUCKET).upload(newPath, downloadData, {
-      upsert: true,
-    })
-    if (uploadError) {
-      console.error("Upload error:", uploadError)
-      alert("Failed to upload file with new name")
-      return
-    }
-
-    const { error: deleteError } = await supabase.storage.from(BUCKET).remove([oldPath])
-    if (deleteError) {
-      console.error("Delete error:", deleteError)
-      alert(`Failed to delete old file "${oldName}": ${deleteError.message}`)
-      return
-    }
-
-    const publicUrl = makePublicUrl(prefix, newName)
-    setFiles((prev) => {
-      const updatedFiles = { ...prev }
-      const entry = updatedFiles[oldName]
-      delete updatedFiles[oldName]
-      updatedFiles[newName] = {
-        ...(entry ?? {
-          name: newName,
-          blob: new Blob(),
-          uploaded: true,
-          lastModified: Date.now(),
-          progress: 100,
-        }),
-        name: newName,
-        previewUrl: publicUrl,
-        url: publicUrl,
-        pathPrefix: prefix,
+      const { data: downloadData, error: downloadError } = await supabase.storage.from(BUCKET).download(oldPath)
+      if (downloadError || !downloadData) {
+        console.error("Download error:", downloadError)
+        alert("Failed to download file for renaming")
+        return
       }
-      return updatedFiles
-    })
-    setRenamingFile(null)
-    setNewFileName("")
+
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(newPath, downloadData, {
+        upsert: true,
+      })
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        alert("Failed to upload file with new name")
+        return
+      }
+
+      const { error: deleteError } = await supabase.storage.from(BUCKET).remove([oldPath])
+      if (deleteError) {
+        console.error("Delete error:", deleteError)
+        alert(`Failed to delete old file "${oldName}": ${deleteError.message}`)
+        return
+      }
+
+      const publicUrl = makePublicUrl(prefix, newName)
+      setFiles((prev) => {
+        const updatedFiles = { ...prev }
+        const entry = updatedFiles[oldName]
+        delete updatedFiles[oldName]
+        updatedFiles[newName] = {
+          ...(entry ?? {
+            name: newName,
+            blob: new Blob(),
+            uploaded: true,
+            lastModified: Date.now(),
+            progress: 100,
+          }),
+          name: newName,
+          previewUrl: publicUrl,
+          url: publicUrl,
+          pathPrefix: prefix,
+        }
+        return updatedFiles
+      })
+      setRenamingFile(null)
+      setNewFileName("")
+    } finally {
+      setIsRenaming(false);
+    }
   }
+
+
 
   const filteredFiles = Object.entries(files)
     .filter(([name]) => isImageFile(name))
@@ -782,8 +793,10 @@ export default function Images({ roomId }: ImagesProps) {
                         e.stopPropagation();
                         handleRename(name, newFileName.trim());
                       }}
-                      className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+                      disabled={isRenaming}
+                      className={`flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2 ${isRenaming ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
+                      {isRenaming && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                       Save
                     </button>
 
@@ -793,7 +806,8 @@ export default function Images({ roomId }: ImagesProps) {
                         setRenamingFile(null);
                         setNewFileName("");
                       }}
-                      className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium"
+                      disabled={isRenaming}
+                      className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium disabled:opacity-50"
                     >
                       Cancel
                     </button>

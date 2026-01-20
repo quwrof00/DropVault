@@ -384,8 +384,14 @@ export default function Files({ roomId }: FilesProps) {
     });
   };
 
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  // ... (handleDelete logic)
+
   const handleRename = async (oldName: string, newNameInput: string) => {
     if (!user) return;
+    if (isRenaming) return;
+
     if (!newNameInput || newNameInput === oldName) {
       setRenamingFile(null);
       setNewFileName("");
@@ -408,54 +414,61 @@ export default function Files({ roomId }: FilesProps) {
       return;
     }
 
-    const folderPath = roomId ? `room-${roomId}` : user.id;
-    const oldPath = `${folderPath}/${oldName}`;
-    const newPath = `${folderPath}/${newName}`;
+    setIsRenaming(true);
+    try {
+      const folderPath = roomId ? `room-${roomId}` : user.id;
+      const oldPath = `${folderPath}/${oldName}`;
+      const newPath = `${folderPath}/${newName}`;
 
-    const { data: downloadData, error: downloadError } = await supabase.storage
-      .from("user-files")
-      .download(oldPath);
+      const { data: downloadData, error: downloadError } = await supabase.storage
+        .from("user-files")
+        .download(oldPath);
 
-    if (downloadError || !downloadData) {
-      console.error("Download error:", downloadError);
-      alert("Failed to download file for renaming");
-      return;
+      if (downloadError || !downloadData) {
+        console.error("Download error:", downloadError);
+        alert("Failed to download file for renaming");
+        return;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("user-files")
+        .upload(newPath, downloadData, { upsert: true });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        alert("Failed to upload file with new name");
+        return;
+      }
+
+      const { error: deleteError } = await supabase.storage
+        .from("user-files")
+        .remove([oldPath]);
+
+      if (deleteError) {
+        console.error("Delete error:", deleteError);
+        alert("Failed to delete old file after renaming");
+        return;
+      }
+
+      setFiles((prev) => {
+        const updatedFiles = { ...prev };
+        const entry = updatedFiles[oldName];
+        delete updatedFiles[oldName];
+        updatedFiles[newName] = {
+          ...entry,
+          name: newName,
+        };
+        return updatedFiles;
+      });
+
+      setRenamingFile(null);
+      setNewFileName("");
+    } finally {
+      setIsRenaming(false);
     }
-
-    const { error: uploadError } = await supabase.storage
-      .from("user-files")
-      .upload(newPath, downloadData, { upsert: true });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      alert("Failed to upload file with new name");
-      return;
-    }
-
-    const { error: deleteError } = await supabase.storage
-      .from("user-files")
-      .remove([oldPath]);
-
-    if (deleteError) {
-      console.error("Delete error:", deleteError);
-      alert("Failed to delete old file after renaming");
-      return;
-    }
-
-    setFiles((prev) => {
-      const updatedFiles = { ...prev };
-      const entry = updatedFiles[oldName];
-      delete updatedFiles[oldName];
-      updatedFiles[newName] = {
-        ...entry,
-        name: newName,
-      };
-      return updatedFiles;
-    });
-
-    setRenamingFile(null);
-    setNewFileName("");
   };
+
+
 
   const filteredFiles = Object.entries(files)
     .filter(([name]) => name.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -606,8 +619,10 @@ export default function Files({ roomId }: FilesProps) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleRename(name, newFileName.trim())}
-                        className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+                        disabled={isRenaming}
+                        className={`flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium flex items-center justify-center gap-2 ${isRenaming ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
+                        {isRenaming && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                         Save
                       </button>
                       <button
@@ -615,7 +630,8 @@ export default function Files({ roomId }: FilesProps) {
                           setRenamingFile(null);
                           setNewFileName("");
                         }}
-                        className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium"
+                        disabled={isRenaming}
+                        className="flex-1 bg-gray-600 text-gray-300 py-2 px-3 rounded-lg hover:bg-gray-500 transition-colors duration-200 text-sm font-medium disabled:opacity-50"
                       >
                         Cancel
                       </button>
