@@ -26,7 +26,7 @@ export function Main() {
 
             {/* Sidebar Container - Mobile Drawer / Desktop Static */}
             <div className={`
-                fixed inset-y-0 left-0 z-50 w-72 bg-gray-950 shadow-2xl transition-transform duration-300 ease-in-out
+                fixed inset-y-0 left-0 z-50 md:z-0 w-72 bg-gray-950 shadow-2xl transition-transform duration-300 ease-in-out
                 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
                 md:relative md:translate-x-0 md:flex md:w-64 md:shadow-none md:flex-col md:h-full
             `}>

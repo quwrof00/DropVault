@@ -30,7 +30,7 @@ export default function Notes({ roomId }: NotesProps) {
 
   const [files, setFiles] = useState<{ [key: string]: string }>({});
   const [currentFile, setCurrentFile] = useState<string>("");
-  const [currentFolder, setCurrentFolder] = useState<string>("");
+
   const [text, setText] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -47,10 +47,7 @@ export default function Notes({ roomId }: NotesProps) {
   const lastSavedTextRef = useRef<string>("");
   const isInitialLoadRef = useRef(true);
 
-  // Helper to get full path for a new file in current folder
-  const getFullPath = useCallback((fileName: string) => {
-    return currentFolder ? `${currentFolder}/${fileName}` : fileName;
-  }, [currentFolder]);
+
 
   // Debounced save function for personal notes
   const savePersonalNote = useCallback(async (fileName: string, content: string, forceImmediate = false) => {
@@ -320,7 +317,7 @@ export default function Notes({ roomId }: NotesProps) {
           return;
         }
 
-        const fullPath = getFullPath(trimmedName);
+        const fullPath = trimmedName;
         const folderExists = Object.keys(files).some(path =>
           path === fullPath || path.startsWith(fullPath + "/")
         );
@@ -352,24 +349,28 @@ export default function Notes({ roomId }: NotesProps) {
         }
       }
     });
-  }, [user, roomId, files, getFullPath]);
+  }, [user, roomId, files]);
 
 
-  const handleNewFile = useCallback(() => {
+  const handleNewFile = useCallback((prefillPath?: string) => {
     if (!user) return;
+
+    // Determine default value: prefillPath > currentFolder
+    const initialValue = prefillPath ? `${prefillPath}/` : "";
+
     setDialog({
       isOpen: true,
       title: "New Note",
-      message: "Enter a name for your note:",
+      message: "Enter full path for your note:",
       type: "input",
-      placeholder: "Note Name",
+      placeholder: "folder/note-name",
+      defaultValue: initialValue,
       confirmText: "Create",
       onConfirm: async (name) => {
         if (!name?.trim()) return;
         const trimmedName = name.trim();
-        const fullPath = getFullPath(trimmedName);
 
-        if (files[fullPath]) {
+        if (files[trimmedName]) {
           showAlert(`Note with title "${trimmedName}" already exists!`);
           return;
         }
@@ -381,15 +382,15 @@ export default function Notes({ roomId }: NotesProps) {
           const { error } = await supabase.from("notes").insert({
             user_id: roomId ? null : user.id,
             room_id: roomId ?? null,
-            title: fullPath,
+            title: trimmedName,
             ciphertext: encrypted.ciphertext,
             iv: encrypted.iv,
             salt: encrypted.salt,
           });
 
           if (error) throw error;
-          setFiles((prev) => ({ ...prev, [fullPath]: "" }));
-          setCurrentFile(fullPath);
+          setFiles((prev) => ({ ...prev, [trimmedName]: "" }));
+          setCurrentFile(trimmedName);
           setText("");
           lastSavedTextRef.current = "";
           closeDialog();
@@ -401,7 +402,7 @@ export default function Notes({ roomId }: NotesProps) {
         }
       }
     });
-  }, [user, roomId, files, getFullPath]);
+  }, [user, roomId, files]);
 
   const handleDelete = useCallback((file: string) => {
     if (!user) return;
@@ -590,7 +591,8 @@ export default function Notes({ roomId }: NotesProps) {
         search={search}
         setSearch={setSearch}
         items={allFilePaths}
-        onCreate={handleNewFile}
+        onCreate={(path) => handleNewFile(path)}
+        onCreateFileInFolder={(path) => handleNewFile(path)}
         onCreateFolder={handleNewFolder}
         onSelect={(file) => {
           handleFileSelect(file);
@@ -601,8 +603,6 @@ export default function Notes({ roomId }: NotesProps) {
         currentItem={currentFile}
         typeLabel="Note"
         isCreating={isCreating}
-        currentFolder={currentFolder}
-        onFolderChange={setCurrentFolder}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />

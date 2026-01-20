@@ -1,197 +1,179 @@
 import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "../hooks/useAuthUser";
-import { useState } from "react";
-import { FileText, Image, Folder, Code, Shield, Lock, ChevronRight, Terminal, Globe } from "lucide-react";
+import { Lock, Users, ArrowDown, FileText, Folder, Code, Globe, Image as ImageIcon } from "lucide-react";
 
 export default function HomePage() {
   const navigate = useNavigate();
   const user = useAuthUser();
-  const [loading, setLoading] = useState(false);
 
-  const handleNav = (path: string) => {
-    setLoading(true);
-    navigate(path);
-    setLoading(false);
+  const scrollToFeatures = () => {
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
-  if (user === undefined) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#030303] text-gray-200 font-sans flex flex-col relative overflow-hidden p-4">
-      {/* Grid Pattern Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#030303] via-transparent to-transparent pointer-events-none" />
+    <div className="bg-gray-950 text-gray-200 font-sans selection:bg-blue-500/30">
 
-      {/* Main Content Container */}
-      <div className="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 z-10 py-4 lg:py-8 flex flex-col gap-6 lg:gap-8">
+      {/* Hero Section */}
+      <div className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center overflow-hidden py-16">
+        {/* Background Gradients/Effects */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] md:w-[800px] h-[400px] md:h-[500px] bg-blue-900/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#030712_100%)] pointer-events-none" />
 
-        {/* Hero Section - Tighter & Denser */}
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-          <div className="space-y-6">
+        {/* Main Card */}
+        <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center">
+          <div className="bg-gray-900/50 backdrop-blur-2xl border border-gray-800 rounded-3xl p-8 md:p-14 text-center shadow-2xl shadow-black/50 flex flex-col items-center w-full relative overflow-hidden">
 
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-white leading-[0.95]">
-              Own your <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
-                digital footprint.
-              </span>
+            {/* Subtle inner gloss */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+
+            {/* Title */}
+            <h1 className="relative text-5xl md:text-7xl font-bold tracking-tight mb-6 text-white drop-shadow-lg">
+              DROPVAULT
             </h1>
 
-            <p className="text-base sm:text-lg text-gray-400 max-w-md leading-relaxed">
-              A consolidated workspace for your sensitive data.
-              Encrypted notes, decentralized storage, and code execution.
-              <span className="block mt-2 text-gray-500 text-sm">No tracking. No ads. Just tools.</span>
+            {/* Underline */}
+            <div className="relative h-1 w-24 bg-gradient-to-r from-blue-500 to-emerald-400 mx-auto rounded-full mb-10 shadow-lg shadow-blue-500/20"></div>
+
+            {/* Subtitle */}
+            <p className="relative text-lg md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed mb-12 font-normal">
+              {user
+                ? "Welcome back. Your secure workspace is ready."
+                : "Your secure academic hub. Encrypted notes, code, and storage."}
             </p>
 
-            <div className="flex items-center gap-4 pt-2">
+            {/* Buttons */}
+            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-5 mb-10 w-full max-w-md">
               <button
-                onClick={() => handleNav(user ? "/main" : "/register")}
-                disabled={loading}
-                className="group px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-all flex items-center gap-2"
+                onClick={() => navigate(user ? "/main" : "/login")}
+                className="group flex items-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto justify-center shadow-lg shadow-blue-900/20"
               >
-                {loading ? "PROCESSING..." : (user ? "ENTER VAULT" : "INITIALIZE")}
-                <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                <Lock className="w-4 h-4" />
+                <span>{user ? "Enter Vault" : "Initialize Vault"}</span>
               </button>
 
-              {!user && (
-                <button
-                  onClick={() => handleNav("/login")}
-                  className="px-6 py-3 text-gray-400 hover:text-white font-medium transition-colors"
-                >
-                  ACCESS SYSTEM
-                </button>
-              )}
+              <button
+                onClick={() => navigate("/rooms")}
+                className="group flex items-center gap-3 px-8 py-3.5 bg-gray-800/50 hover:bg-gray-800 text-gray-300 hover:text-white border border-gray-700/50 hover:border-gray-600 rounded-xl font-medium transition-all hover:scale-[1.02] active:scale-95 w-full sm:w-auto justify-center"
+              >
+                <Users className="w-4 h-4" />
+                <span>Study Rooms</span>
+              </button>
+            </div>
+
+            {/* Bottom Banner */}
+            <div className="relative w-full max-w-xl bg-gray-950/50 border border-gray-800/50 rounded-xl py-3 px-4 flex items-center justify-center gap-2 text-gray-400/80 text-sm">
+              <span>Ready for your next session?</span>
+            </div>
+
+          </div>
+
+          {/* Explore Features - Connected Indicator */}
+          <div
+            className="mt-8 flex flex-col items-center gap-3 cursor-pointer group opacity-60 hover:opacity-100 transition-opacity"
+            onClick={scrollToFeatures}
+          >
+            <span className="text-gray-500 text-[10px] font-bold tracking-[0.2em] uppercase">Explore Features</span>
+            <div className="w-8 h-8 rounded-full border border-gray-800 bg-gray-900/50 flex items-center justify-center group-hover:border-blue-500/30 group-hover:bg-blue-500/10 transition-colors animate-bounce">
+              <ArrowDown className="w-4 h-4 text-gray-400 group-hover:text-blue-400" />
             </div>
           </div>
 
-          {/* Abstract Visual / Feature Preview */}
-          <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-20 animate-pulse"></div>
-            <div className="relative bg-gray-900/80 backdrop-blur-xl border border-white/10 rounded-xl p-4 sm:p-6 grid grid-cols-2 gap-4">
-              {/* Mock Dashboard Widgets */}
-              <div className="col-span-2 bg-[#0A0A0A] border border-white/5 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center text-blue-400">
-                    <Shield size={16} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-white">Security Status</div>
-                    <div className="text-xs text-green-400">AES-256 Active</div>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 font-mono">ENCRYPTED</div>
-              </div>
+        </div>
+      </div>
 
-              <div className="bg-[#0A0A0A] border border-white/5 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2 text-gray-400 mb-2">
-                  <Folder size={14} />
-                  <span className="text-xs font-mono">/STORAGE</span>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="h-1.5 w-3/4 bg-gray-800 rounded-full"></div>
-                  <div className="h-1.5 w-1/2 bg-gray-800 rounded-full"></div>
-                  <div className="h-1.5 w-2/3 bg-gray-800 rounded-full"></div>
-                </div>
-              </div>
+      {/* Features Section */}
+      <div id="features" className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pb-24 pt-0">
 
-              <div className="bg-[#0A0A0A] border border-white/5 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-2 text-gray-400 mb-2">
-                  <Terminal size={14} />
-                  <span className="text-xs font-mono">/CONSOLE</span>
-                </div>
-                <div className="text-[10px] font-mono text-green-500/50 leading-tight">
-                  &gt; init_sequence<br />
-                  &gt; loading_modules...<br />
-                  &gt; ready
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Section Header */}
+        <div className="text-center mb-16">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">System Capabilities</h2>
+          <div className="h-0.5 w-16 bg-gray-800 mx-auto rounded-full"></div>
         </div>
 
-        {/* Bento Grid Features - Dense Layout */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 h-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* Large Card: Secure Notes */}
-          <div className="md:col-span-2 bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-xl p-6 flex flex-col justify-between group transition-colors">
-            <div className="mb-4">
-              <FileText className="w-8 h-8 text-blue-400 mb-3" />
-              <h3 className="text-xl font-bold text-white mb-1">Encrypted Notes</h3>
-              <p className="text-sm text-gray-400">
-                Markdown support with live preview. Your thoughts are encrypted client-side before they ever touch our servers.
+          <div className="md:col-span-2 bg-gray-900 border border-gray-800 hover:border-blue-500/30 rounded-2xl p-6 flex flex-col justify-between group transition-all duration-300 hover:shadow-xl hover:shadow-blue-900/5">
+            <div className="mb-6">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mb-4 text-blue-400 group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Encrypted Notes</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Markdown support with live preview. Client-side encryption ensures your thoughts remain private.
               </p>
             </div>
-            <div className="w-full h-24 bg-[#0A0A0A] rounded-lg border border-white/5 p-3 font-mono text-xs text-gray-500 overflow-hidden opacity-50 group-hover:opacity-80 transition-opacity">
-              # Project Alpha<br />
-              - [x] Secure database connection<br />
-              - [ ] Implement zero-knowledge proof
+            <div className="w-full h-28 bg-gray-950 rounded-xl border border-gray-800/50 p-3 font-mono text-[10px] text-gray-500 overflow-hidden relative opacity-70 group-hover:opacity-100 transition-opacity">
+              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none"></div>
+              # Research Notes<br />
+              - [x] Analyze data structure<br />
+              - [ ] Review security protocol
             </div>
           </div>
 
           {/* Tall Card: File Storage */}
-          <div className="md:row-span-2 bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-xl p-6 flex flex-col group transition-colors">
-            <div className="flex-1">
-              <Folder className="w-8 h-8 text-yellow-400 mb-3" />
-              <h3 className="text-xl font-bold text-white mb-1">File Vault</h3>
-              <p className="text-sm text-gray-400 mb-4">
-                Drag-and-drop storage for any file type. Organized in a hierarchical tree.
-              </p>
+          <div className="md:row-span-2 md:col-span-2 lg:col-span-1 lg:row-span-1 bg-gray-900 border border-gray-800 hover:border-yellow-500/30 rounded-2xl p-6 flex flex-col group transition-all duration-300 hover:shadow-xl hover:shadow-yellow-900/5">
+            <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center mb-4 text-yellow-500 group-hover:scale-105 transition-transform">
+              <Folder className="w-5 h-5" />
             </div>
-            <div className="space-y-2 mt-auto">
-              <div className="flex items-center gap-2 p-2 rounded bg-white/5 text-xs text-gray-300">
-                <Image size={12} className="text-purple-400" /> screenshot_2024.png
+            <h3 className="text-lg font-bold text-white mb-2">File Vault</h3>
+            <p className="text-gray-400 text-sm leading-relaxed mb-6 flex-1">
+              Hierarchical file storage for any format. Drag-and-drop powered.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-950 border border-gray-800/50 text-xs text-gray-400">
+                <ImageIcon size={12} className="text-purple-400" /> screenshot.png
               </div>
-              <div className="flex items-center gap-2 p-2 rounded bg-white/5 text-xs text-gray-300">
-                <Code size={12} className="text-green-400" /> main.rs
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded bg-white/5 text-xs text-gray-300">
-                <Lock size={12} className="text-red-400" /> keys.pem
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-950 border border-gray-800/50 text-xs text-gray-400">
+                <Code size={12} className="text-emerald-400" /> main.rs
               </div>
             </div>
           </div>
 
           {/* Square Card: Code */}
-          <div className="bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-xl p-6 group transition-colors">
-            <Code className="w-8 h-8 text-green-400 mb-3" />
-            <h3 className="text-lg font-bold text-white mb-1">Snippets</h3>
-            <p className="text-xs text-gray-400">
-              Syntax highlighting for 100+ languages. Execute JS/TS/Python directly in the browser.
+          <div className="bg-gray-900 border border-gray-800 hover:border-emerald-500/30 rounded-2xl p-6 group transition-all duration-300 hover:shadow-xl hover:shadow-emerald-900/5">
+            <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-4 text-emerald-400 group-hover:scale-105 transition-transform">
+              <Code className="w-5 h-5" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Snippets</h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Multi-language syntax highlighting & JS execution environment.
             </p>
           </div>
 
           {/* Square Card: Global */}
-          <div className="bg-gray-900/40 border border-white/5 hover:border-white/10 rounded-xl p-6 group transition-colors">
-            <Globe className="w-8 h-8 text-cyan-400 mb-3" />
-            <h3 className="text-lg font-bold text-white mb-1">Access</h3>
-            <p className="text-xs text-gray-400">
-              Access your vault from any device. Mobile optimized. Instant sync.
+          <div className="bg-gray-900 border border-gray-800 hover:border-cyan-500/30 rounded-2xl p-6 group transition-all duration-300 hover:shadow-xl hover:shadow-cyan-900/5">
+            <div className="w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center mb-4 text-cyan-400 group-hover:scale-105 transition-transform">
+              <Globe className="w-5 h-5" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Access</h3>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Universal access from any authenticated device.
             </p>
           </div>
 
           {/* Wide Card: Encryption Spec */}
-          <div className="md:col-span-3 bg-gradient-to-r from-blue-900/10 to-indigo-900/10 border border-blue-500/10 rounded-xl p-4 flex items-center justify-between gap-4">
+          <div className="md:col-span-3 bg-gradient-to-r from-gray-900 to-gray-800 border border-gray-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+              <div className="p-2.5 bg-gray-950 rounded-lg text-gray-400 border border-gray-800">
                 <Lock size={20} />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-white">Zero-Knowledge Architecture</h4>
-                <p className="text-xs text-gray-400">Your password never leaves your device.</p>
+                <p className="text-xs text-gray-400">Encryption keys stay on your device.</p>
               </div>
             </div>
-            <div className="hidden sm:block text-xs font-mono text-blue-300/50">
+            <div className="hidden sm:block text-[10px] font-mono text-gray-500 tracking-wider">
               SHA-256 • AES-GCM • ARGON2ID
             </div>
           </div>
 
         </div>
-
       </div>
+
     </div>
   );
 }

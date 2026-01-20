@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { supabase } from "../../lib/supabase-client";
@@ -6,6 +6,7 @@ import SubSidebar from "../PageHelpers/SubSidebar";
 import CodeEditor from "@uiw/react-textarea-code-editor";
 import Compiler from "../Compiler/Compiler";
 import { Dialog, type DialogProps } from "../UI/Dialog";
+import { Loader2 } from "lucide-react";
 
 const languages = [
   { label: "C", value: "c" },
@@ -41,6 +42,10 @@ export default function Codes({ roomId }: CodesProps) {
   const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
+
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const lastSavedCodeRef = useRef<string>("");
 
   // Fetch snippets from Supabase
   useEffect(() => {
@@ -90,6 +95,7 @@ export default function Codes({ roomId }: CodesProps) {
           if (firstTitle) {
             setCurrentTitle(firstTitle);
             setCode(supabaseSnippets[firstTitle].code);
+            lastSavedCodeRef.current = supabaseSnippets[firstTitle].code;
           }
         }
       } catch (err) {
@@ -101,51 +107,120 @@ export default function Codes({ roomId }: CodesProps) {
     })();
   }, [user, navigate, roomId]);
 
-  // Sync updates to Supabase
+  // Dedicated Save Function
+  const saveSnippet = async (title: string, newCode: string, language: string, forceImmediate = false) => {
+    if (!user || !title || !isMountedRef.current) return;
+
+    // Skip if no changes, unless forced
+    if (!forceImmediate && newCode === lastSavedCodeRef.current) return;
+
+    try {
+      setIsSaving(true);
+      const { error } = await supabase
+        .from("codes")
+        .upsert(
+          {
+            user_id: user.id,
+            title: title,
+            code: newCode,
+            language: language,
+            room_id: roomId ?? null,
+          },
+          {
+            onConflict: roomId ? "user_id,title,room_id" : "user_id,title",
+          }
+        );
+
+      if (error) throw error;
+
+      lastSavedCodeRef.current = newCode;
+
+      // Update local snippets state to match
+      setSnippets((prev) => ({
+        ...prev,
+        [title]: { ...prev[title], code: newCode },
+      }));
+
+      if (isMountedRef.current) setError(null);
+
+    } catch (err: any) {
+      console.error("Save error:", err);
+      if (isMountedRef.current) {
+        setError("Failed to save snippet. Changes may be lost.");
+      }
+    } finally {
+      if (isMountedRef.current) setIsSaving(false);
+    }
+  };
+
+  // Auto-save effect
   useEffect(() => {
     if (!currentTitle || !user) return;
+    const snippet = snippets[currentTitle];
+    if (!snippet) return;
 
-    const timeout = setTimeout(async () => {
-      const snippet = snippets[currentTitle];
-      if (!snippet) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
-      setIsSaving(true);
-      try {
-        const { error } = await supabase
-          .from("codes")
-          .upsert(
-            {
-              user_id: user.id,
-              title: currentTitle,
-              code: code,
-              language: snippet.language,
-              room_id: roomId ?? null,
-            },
-            {
-              onConflict: roomId ? "user_id,title,room_id" : "user_id,title",
-            }
-          );
-
-        if (error) {
-          console.error("Sync failed:", error.message);
-          setError("Failed to save snippet. Changes may be lost.");
-          return;
-        }
-
-        setSnippets((prev) => ({
-          ...prev,
-          [currentTitle]: { ...prev[currentTitle], code },
-        }));
-      } catch (err) {
-        console.error("Save error:", err);
-        setError("Failed to save snippet. Changes may be lost.");
-      } finally {
-        setIsSaving(false);
+    saveTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current && code !== lastSavedCodeRef.current) {
+        saveSnippet(currentTitle, code, snippet.language).catch(console.error);
       }
-    }, 500);
+    }, 2000);
 
-    return () => clearTimeout(timeout);
-  }, [code, currentTitle, user, roomId, snippets]);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [code, currentTitle, user, roomId, snippets]); // Note: snippets dependency might re-trigger if other fields change, but code check protects us
+
+  // Save on visibility change and unload
+  useEffect(() => {
+    if (!user || !currentTitle) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && code !== lastSavedCodeRef.current) {
+        const snippet = snippets[currentTitle];
+        if (snippet) {
+          saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
+        }
+      }
+    };
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (code !== lastSavedCodeRef.current) {
+        const snippet = snippets[currentTitle];
+        if (snippet) {
+          saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
+        }
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user, currentTitle, code, snippets]);
+
+  // Component cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+      // Attempt final save on unmount if needed
+      if (user && currentTitle && code !== lastSavedCodeRef.current) {
+        const snippet = snippets[currentTitle];
+        if (snippet) {
+          saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
+        }
+      }
+    };
+  }, [user, currentTitle, code, snippets]);
 
   if (user === undefined || isLoading) {
     return (
@@ -183,15 +258,18 @@ export default function Codes({ roomId }: CodesProps) {
     });
   };
 
-  const handleNewSnippet = () => {
+  const handleNewSnippet = (prefillPath?: string) => {
     if (!user) return;
+
+    const initialValue = prefillPath ? `${prefillPath}/` : "";
 
     setDialog({
       isOpen: true,
       title: "New Snippet",
-      message: "Enter a name for your snippet:",
+      message: "Enter name or path for your snippet:",
       type: "input",
-      placeholder: "Snippet Name",
+      placeholder: "folder/snippet-name",
+      defaultValue: initialValue,
       confirmText: "Create",
       onConfirm: async (title) => {
         if (!title || !title.trim()) return;
@@ -222,6 +300,7 @@ export default function Codes({ roomId }: CodesProps) {
           setSnippets((prev) => ({ ...prev, [trimmedTitle]: newSnippet }));
           setCurrentTitle(trimmedTitle);
           setCode("");
+          lastSavedCodeRef.current = "";
           setError(null);
           closeDialog();
         } catch (err) {
@@ -414,7 +493,8 @@ export default function Codes({ roomId }: CodesProps) {
         search={search}
         setSearch={setSearch}
         items={filteredSnippets}
-        onCreate={handleNewSnippet}
+        onCreate={(path) => handleNewSnippet(path)}
+        onCreateFileInFolder={(path) => handleNewSnippet(path)}
         onSelect={handleSelect}
         onRename={handleRename}
         onDelete={handleDelete}
@@ -444,9 +524,9 @@ export default function Codes({ roomId }: CodesProps) {
               {currentTitle || "No Snippet Selected"}
             </h2>
             {isSaving && (
-              <div className="flex items-center space-x-2 text-green-400">
-                <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm font-normal">Saving...</span>
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 transition-all duration-300">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span className="text-xs font-medium">Saving changes...</span>
               </div>
             )}
           </div>

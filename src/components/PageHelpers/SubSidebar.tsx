@@ -1,20 +1,19 @@
 import React, { useState, useMemo } from "react";
-import { Menu, Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus } from "lucide-react";
+import { Menu, Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus, FileText } from "lucide-react";
 
 interface SidebarProps {
   search: string;
   setSearch: (value: string) => void;
   items: string[];
-  onCreate: () => void;
+  onCreate: (path?: string) => void; // Updated to accept optional path
   onCreateFolder?: () => void;
   onSelect: (name: string) => void;
   onRename: (name: string) => void;
   onDelete: (name: string) => void;
+  onCreateFileInFolder?: (folderPath: string) => void;
   currentItem: string;
   typeLabel: string;
   isCreating: boolean;
-  currentFolder?: string;
-  onFolderChange?: (folder: string) => void;
 
   // New props for mobile control
   isOpen?: boolean; // Controlled by parent on mobile
@@ -37,25 +36,39 @@ const SubSidebar: React.FC<SidebarProps> = ({
   onSelect,
   onRename,
   onDelete,
+  onCreateFileInFolder,
   currentItem,
   typeLabel,
   isCreating,
-  currentFolder = "",
-  onFolderChange,
   isOpen = false, // Default closed on mobile if not specified
   onClose
 }) => {
   const [isDesktopOpen, setIsDesktopOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'folders' | 'files'>('folders'); // 'folders' (Tree) | 'files' (Stray/Root only)
 
   // Build tree structure
   const treeStructure = useMemo(() => {
     const root: TreeNode[] = [];
     const folderMap = new Map<string, TreeNode>();
 
-    const filteredItems = items.filter(item =>
-      item.toLowerCase().includes(search.toLowerCase())
-    );
+    // Filter items based on view mode and search
+    const filteredItems = items.filter(item => {
+      // Search filter
+      if (!item.toLowerCase().includes(search.toLowerCase())) return false;
+
+      // View mode filter
+      const isRootFile = !item.includes('/');
+      if (viewMode === 'files' && !isRootFile) return false;
+      // For 'folders' mode, we might want to hide root files?
+      // "Toggle between folders and stray files" implies separation.
+      // If mode is 'folders', we show the tree. Usually specific to "organized" content.
+      // Let's hide root files in 'folders' mode to make it distinct, or keep them?
+      // User said "toggle between folders and stray files".
+      if (viewMode === 'folders' && isRootFile) return false;
+
+      return true;
+    });
 
     const sortedItems = [...filteredItems].sort((a, b) => {
       const aParts = a.split('/');
@@ -102,7 +115,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
       }
     });
     return root;
-  }, [items, search]);
+  }, [items, search, viewMode]);
 
   const toggleFolder = (folderPath: string) => {
     setExpandedFolders(prev => {
@@ -136,6 +149,15 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
             {(isDesktopOpen || window.innerWidth < 768) && (
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onCreateFileInFolder && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onCreateFileInFolder(node.fullPath); }}
+                    className="text-green-500 hover:text-green-400"
+                    title="New File in Folder"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
                 <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
                 <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
               </div>
@@ -217,7 +239,28 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
       {/* Content Container */}
       <div className={`flex flex-col flex-1 min-h-0 overflow-hidden ${!isDesktopOpen ? 'md:hidden' : ''}`}>
-        <div className="px-4 flex flex-col gap-3 py-4">
+
+        {/* Toggle (Folders/Files) */}
+        <div className="px-4 pb-2">
+          <div className="flex bg-gray-900/50 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode('folders')}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${viewMode === 'folders' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-300'}`}
+            >
+              <Folder size={12} />
+              <span>Folders</span>
+            </button>
+            <button
+              onClick={() => setViewMode('files')}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-all ${viewMode === 'files' ? 'bg-gray-700 text-white shadow-sm' : 'text-gray-400 hover:text-gray-300'}`}
+            >
+              <FileText size={12} />
+              <span>Stray Files</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="px-4 flex flex-col gap-3 py-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -230,7 +273,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="flex gap-2">
-            {onCreateFolder && (
+            {onCreateFolder && viewMode === 'folders' && (
               <button
                 onClick={onCreateFolder}
                 className="flex items-center justify-center gap-2 py-2 px-3 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition text-sm font-medium flex-1"
@@ -240,7 +283,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
               </button>
             )}
             <button
-              onClick={onCreate}
+              onClick={() => onCreate()}
               disabled={isCreating}
               className="flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -248,26 +291,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
               <span className="truncate">{typeLabel}</span>
             </button>
           </div>
-
-          {currentFolder && onFolderChange && (
-            <div className="flex items-center gap-1 text-xs text-gray-400 overflow-x-auto scrollbar-hide">
-              <button onClick={() => onFolderChange("")} className="hover:text-blue-400 whitespace-nowrap">Home</button>
-              {currentFolder.split('/').map((part, index, arr) => {
-                const path = arr.slice(0, index + 1).join('/');
-                return (
-                  <React.Fragment key={path}>
-                    <ChevronRight size={12} />
-                    <button onClick={() => onFolderChange(path)} className="hover:text-blue-400 whitespace-nowrap">{part}</button>
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-700 px-2 pb-4">
           {items.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm font-medium mt-4">No items found.</p>
+            <p className="text-center text-gray-400 text-sm font-medium mt-4">No items.</p>
           ) : treeStructure.length === 0 ? (
             <p className="text-center text-gray-400 text-sm font-medium mt-4">No results.</p>
           ) : (

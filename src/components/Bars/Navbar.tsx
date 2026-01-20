@@ -83,7 +83,7 @@ export function Navbar() {
         </div>
       )}
 
-      <nav className="bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 sticky top-0 z-40 shadow-2xl">
+      <nav className="bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 sticky top-0 z-[100] shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left side - Logo and main nav */}

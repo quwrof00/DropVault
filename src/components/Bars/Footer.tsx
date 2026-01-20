@@ -7,8 +7,8 @@ export default function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
-            <button 
-              onClick={() => navigate('/')} 
+            <button
+              onClick={() => navigate('/')}
               className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-300"
             >
               DropVault
@@ -17,7 +17,7 @@ export default function Footer() {
               Your secure academic collaboration platform
             </p>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-6 text-sm">
             <div className="text-center sm:text-left">
               <h4 className="text-gray-300 font-medium mb-2">Product</h4>
@@ -27,7 +27,7 @@ export default function Footer() {
                 <li><a href="#" className="hover:text-blue-400 transition-colors">API</a></li>
               </ul>
             </div>
-            
+
             <div className="text-center sm:text-left">
               <h4 className="text-gray-300 font-medium mb-2">Company</h4>
               <ul className="space-y-1 text-gray-400">
@@ -36,7 +36,7 @@ export default function Footer() {
                 <li><a href="#" className="hover:text-blue-400 transition-colors">Careers</a></li>
               </ul>
             </div>
-            
+
             <div className="text-center sm:text-left">
               <h4 className="text-gray-300 font-medium mb-2">Legal</h4>
               <ul className="space-y-1 text-gray-400">
@@ -47,10 +47,10 @@ export default function Footer() {
             </div>
           </div>
         </div>
-        
+
         <div className="border-t border-gray-700 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm mb-4 md:mb-0">
-            © 2025 DropVault. All rights reserved.
+            © {new Date().getFullYear()} DropVault. All rights reserved.
           </p>
           <div className="flex space-x-6">
             <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors">

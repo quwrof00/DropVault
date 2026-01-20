@@ -28,7 +28,7 @@ function App() {
         <Route path="/rooms" element={<Protector><RoomsPage /></Protector>} />
         <Route path="/room" element={<Protector><RoomMain /></Protector>} />
       </Routes>
-      {!isHomePage && <Footer />}
+      {isHomePage && <Footer />}
       <ToastContainer className='rounded' position="top-center" autoClose={2000} />
     </>
   )
