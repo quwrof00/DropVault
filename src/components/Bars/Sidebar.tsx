@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase-client";
-import { Image, Folder, FileText, Code, Box, X, ChevronDown, User } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { Image, Folder, FileText, Code, Box, X, ChevronDown, User, Eye, EyeOff, Copy, Check } from "lucide-react";
 
 type RoomUser = {
   id: string;
@@ -23,11 +24,15 @@ const sections = [
 ];
 
 const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarProps) => {
+  const { user: currentUser } = useAuth();
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("roomId");
   const [roomMembers, setRoomMembers] = useState<RoomUser[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [isMembersCollapsed, setIsMembersCollapsed] = useState(false);
+  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [showCode, setShowCode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -39,29 +44,16 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
       setIsLoadingMembers(true);
 
       try {
-        // First try to fetch via relationship
-        const { data: joinedData, error: joinError } = await supabase
-          .from("room_users")
-          .select("user_id, users(email)")
-          .eq("room_id", roomId);
-
-        if (!joinError && joinedData) {
-          // Map the joined data
-          const validMembers = joinedData.map((item: any) => ({
-            id: item.user_id,
-            email: item.users?.email || "Unknown User"
-          }));
-          setRoomMembers(validMembers);
-          return;
-        }
-
-        // Fallback: Fetch IDs then fetch user details (for when FK might be missing or different schema)
+        // 1. Fetch all user IDs in the room (Source of Truth)
         const { data: roomUsers, error: roomError } = await supabase
           .from("room_users")
           .select("user_id")
           .eq("room_id", roomId);
 
-        if (roomError) throw roomError;
+        if (roomError) {
+          console.error("Error fetching room users:", roomError);
+          return;
+        }
 
         if (!roomUsers?.length) {
           setRoomMembers([]);
@@ -69,33 +61,69 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
         }
 
         const userIds = roomUsers.map((u) => u.user_id);
+
+        // 2. Fetch user details for these IDs
         const { data: users, error: userError } = await supabase
           .from("users")
           .select("id, email")
           .in("id", userIds);
 
-        // Even if userError happens (e.g. RLS), we can at least show we have members
         if (userError) {
-          console.warn("Could not fetch user details", userError);
-          // Show generic members if we can't get details
-          setRoomMembers(userIds.map(id => ({ id, email: "Member" })));
-        } else {
-          setRoomMembers(users || []);
+          console.warn("Error fetching user details:", userError);
+          // If fetching details fails, still show the members as Unknown
         }
 
+        // 3. Merge: Ensure every roomUser is represented
+        const validMembers = userIds.map(id => {
+          const userProfile = users?.find(u => u.id === id);
+
+          let email = "Unknown Member";
+          if (userProfile?.email) {
+            email = userProfile.email;
+          } else if (id === currentUser?.id && currentUser?.email) {
+            email = currentUser.email + " (You)";
+          }
+
+          return {
+            id: id,
+            email: email
+          };
+        });
+
+        // Remove duplicates if any (though logic shouldn't produce them)
+        const uniqueMembers = Array.from(new Map(validMembers.map(item => [item.id, item])).values());
+
+        setRoomMembers(uniqueMembers);
+
       } catch (err) {
-        console.error("Error fetching members:", err);
-        // Don't show error UI, just show empty
+        console.error("Unexpected error fetching members:", err);
       } finally {
         setIsLoadingMembers(false);
       }
     };
 
-    fetchMembers();
+    const fetchRoomDetails = async () => {
+      if (!roomId) {
+        setRoomCode(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("rooms")
+        .select("code")
+        .eq("id", roomId)
+        .single();
 
-    // Optional: Realtime subscription could go here
+      if (data) {
+        setRoomCode(data.code);
+      }
+    };
+
+    fetchMembers();
+    fetchRoomDetails();
+
+    // Realtime subscription
     const channel = supabase
-      .channel('room-users-changes')
+      .channel(`room-users-${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_users', filter: `room_id=eq.${roomId}` },
         () => {
           fetchMembers();
@@ -113,11 +141,45 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
     <div className={`bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-full ${className}`}>
       {/* Header */}
       <div className="p-6 border-b border-gray-800/50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400">
-            <Box size={24} />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400">
+              <Box size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-100 tracking-tight">
+                {roomId ? "Room Vault" : "My Vault"}
+              </h2>
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-gray-100 tracking-tight">My Vault</h2>
+
+          {roomId && roomCode && (
+            <div className="flex items-center gap-2 mt-2 ml-1">
+              <button
+                onClick={() => setShowCode(!showCode)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-colors"
+                title={showCode ? "Hide Code" : "Show Code"}
+              >
+                {showCode ? <EyeOff size={14} /> : <Eye size={14} />}
+                <span className="font-medium">
+                  {showCode ? roomCode : "****"}
+                </span>
+              </button>
+              {showCode && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(roomCode);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="text-gray-500 hover:text-green-400 transition-colors"
+                  title="Copy Code"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {onClose && (
           <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white transition-colors">

@@ -1,6 +1,6 @@
 import http from "http";
 import WebSocket from "ws";
-import { setupWSConnection } from "y-websocket/bin/utils";
+import { setupWSConnection } from "@y/websocket-server/utils";
 import * as url from "url";
 
 // No persistence for now (Windows breaks)

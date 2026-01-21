@@ -3,7 +3,6 @@ import { supabase } from "../../lib/supabase-client";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useNavigate } from "react-router-dom";
 import Editor from "../Editor/Editor";
-import CollabEditor from "../CollabEditor";
 import { encrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
 import { Dialog, type DialogProps } from "../UI/Dialog";
@@ -51,32 +50,48 @@ export default function Notes({ roomId }: NotesProps) {
 
 
 
-  // Debounced save function for personal notes
-  const savePersonalNote = useCallback(async (fileName: string, content: string, forceImmediate = false) => {
-    if (!user || roomId || !fileName || !isMountedRef.current) return;
+  // Debounced save function for notes (personal or room)
+  const saveNote = useCallback(async (fileName: string, content: string, forceImmediate = false) => {
+    if (!user || !fileName || !isMountedRef.current) return;
 
     if (!forceImmediate && content === lastSavedTextRef.current) return;
 
-    console.log(`Saving personal note: ${fileName}`);
+    console.log(`Saving note: ${fileName}`);
 
     try {
       setIsSaving(true);
-      const secretKey = user.id;
+      const secretKey = roomId ?? user.id;
       const encrypted = await encrypt(content, secretKey);
 
-      const { error } = await supabase
-        .from("notes")
-        .upsert(
-          {
+      const noteData = {
+        title: fileName,
+        ciphertext: encrypted.ciphertext,
+        iv: encrypted.iv,
+        salt: encrypted.salt,
+        updated_at: new Date().toISOString()
+      };
+
+      let query;
+
+      if (roomId) {
+        query = supabase
+          .from("notes")
+          .upsert({
+            ...noteData,
+            room_id: roomId,
+            user_id: null // Explicitly null for room notes if needed, or omit if default
+          }, { onConflict: 'room_id,title' });
+      } else {
+        query = supabase
+          .from("notes")
+          .upsert({
+            ...noteData,
             user_id: user.id,
-            title: fileName,
-            ciphertext: encrypted.ciphertext,
-            iv: encrypted.iv,
-            salt: encrypted.salt,
             room_id: null
-          },
-          { onConflict: "user_id,title" }
-        );
+          }, { onConflict: 'user_id,title' });
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
@@ -248,9 +263,9 @@ export default function Notes({ roomId }: NotesProps) {
     fetchNotes();
   }, [user, roomId, navigate]);
 
-  // Personal note autosave
+  // Note autosave
   useEffect(() => {
-    if (!user || !currentFile || roomId || isInitialLoadRef.current) return;
+    if (!user || !currentFile || isInitialLoadRef.current) return;
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -258,30 +273,30 @@ export default function Notes({ roomId }: NotesProps) {
 
     saveTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current && text !== lastSavedTextRef.current) {
-        savePersonalNote(currentFile, text).catch(console.error);
+        saveNote(currentFile, text).catch(console.error);
       }
-    }, 2000);
+    }, 500);
 
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [currentFile, user, text, roomId, savePersonalNote]);
+  }, [currentFile, user, text, roomId, saveNote]);
 
   // Save on visibility change and unload
   useEffect(() => {
-    if (!user || roomId) return;
+    if (!user) return;
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && currentFile && text !== lastSavedTextRef.current) {
-        savePersonalNote(currentFile, text, true).catch(console.error);
+        saveNote(currentFile, text, true).catch(console.error);
       }
     };
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (currentFile && text !== lastSavedTextRef.current) {
-        savePersonalNote(currentFile, text, true).catch(console.error);
+        saveNote(currentFile, text, true).catch(console.error);
         event.preventDefault();
         event.returnValue = '';
       }
@@ -294,7 +309,7 @@ export default function Notes({ roomId }: NotesProps) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [user, roomId, currentFile, text, savePersonalNote]);
+  }, [user, roomId, currentFile, text, saveNote]);
 
   // Component cleanup
   useEffect(() => {
@@ -311,22 +326,22 @@ export default function Notes({ roomId }: NotesProps) {
         decryptWorkerRef.current.terminate();
       }
 
-      if (user && !roomId && currentFile && text !== lastSavedTextRef.current) {
-        savePersonalNote(currentFile, text, true).catch(console.error);
+      if (user && currentFile && text !== lastSavedTextRef.current) {
+        saveNote(currentFile, text, true).catch(console.error);
       }
     };
-  }, [user, roomId, currentFile, text, savePersonalNote]);
+  }, [user, roomId, currentFile, text, saveNote]);
 
   const handleFileSelect = useCallback((file: string) => {
-    if (!roomId && currentFile && text !== lastSavedTextRef.current) {
-      savePersonalNote(currentFile, text, true).catch(console.error);
+    if (currentFile && text !== lastSavedTextRef.current) {
+      saveNote(currentFile, text, true).catch(console.error);
     }
 
     setCurrentFile(file);
     setText(files[file] || "");
     lastSavedTextRef.current = files[file] || "";
     setError(null);
-  }, [roomId, currentFile, text, files, savePersonalNote]);
+  }, [roomId, currentFile, text, files, saveNote]);
 
   // Dialog Helpers
   const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
@@ -677,7 +692,7 @@ export default function Notes({ roomId }: NotesProps) {
               )}
             </div>
 
-            {isSaving && !roomId && (
+            {isSaving && (
               <div className="flex items-center space-x-2 text-blue-400 ml-4">
                 <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                 <span className="text-sm font-normal">Saving...</span>
@@ -695,11 +710,7 @@ export default function Notes({ roomId }: NotesProps) {
         <div className="flex-1 flex flex-col min-h-0">
           {currentFile ? (
             <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
-              {roomId ? (
-                <CollabEditor roomId={roomId} fileName={currentFile} />
-              ) : (
-                <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
-              )}
+              <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-400">
