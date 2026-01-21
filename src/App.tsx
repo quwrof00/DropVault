@@ -29,7 +29,7 @@ function App() {
         <Route path="/room" element={<Protector><RoomMain /></Protector>} />
       </Routes>
       {isHomePage && <Footer />}
-      <ToastContainer className='rounded' position="top-center" autoClose={2000} />
+      <ToastContainer className='rounded' position="top-center" autoClose={2000} style={{ zIndex: 9999 }} />
     </>
   )
 }

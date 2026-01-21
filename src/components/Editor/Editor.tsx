@@ -48,11 +48,11 @@ export default function Editor({ content, onUpdate }: EditorProps) {
       onUpdate(editor.getHTML());
     },
     editorProps: {
-    attributes: {
-      spellcheck: 'false',
-      class: 'ProseMirror',
+      attributes: {
+        spellcheck: 'false',
+        class: 'ProseMirror',
+      },
     },
-  },
   });
 
   if (!editor) return null;
@@ -72,66 +72,99 @@ export default function Editor({ content, onUpdate }: EditorProps) {
   return (
     <div className="editor-wrapper">
       {/* Toolbar */}
-      <div className="flex justify-between toolbar">
-        <div>
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={editor.isActive('bold') ? 'active' : ''}
-        >
-          Bold
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={editor.isActive('italic') ? 'active' : ''}
-        >
-          Italic
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={editor.isActive('underline') ? 'active' : ''}
-        >
-          Underline
-        </button>
-        <button
-          onClick={() => editor.chain().focus().setParagraph().run()}
-          className={editor.isActive('paragraph') ? 'active' : ''}
-        >
-          ¶
-        </button>
-        <select 
-           onChange={(e) => {
-            const level = parseInt(e.target.value, 10);
-            if (level === 0) {
+      <div className="flex flex-wrap items-center gap-2 p-2 sticky top-0 z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className={`p-1.5 rounded-md transition-all duration-200 font-medium ${editor.isActive('bold')
+              ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            title="Bold"
+          >
+            B
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className={`p-1.5 rounded-md transition-all duration-200 italic font-serif ${editor.isActive('italic')
+              ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            title="Italic"
+          >
+            I
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            className={`p-1.5 rounded-md transition-all duration-200 underline underline-offset-2 ${editor.isActive('underline')
+              ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            title="Underline"
+          >
+            U
+          </button>
+
+          <div className="w-px h-5 bg-gray-700 mx-1"></div>
+
+          <button
+            onClick={() => editor.chain().focus().setParagraph().run()}
+            className={`p-1.5 px-2 rounded-md transition-all duration-200 ${editor.isActive('paragraph')
+              ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            title="Paragraph"
+          >
+            ¶
+          </button>
+          <select
+            onChange={(e) => {
+              const level = parseInt(e.target.value, 10);
+              if (level === 0) {
                 editor.chain().focus().setParagraph().run();
-            } else {
-                editor.chain().focus().toggleHeading({level: level as 1 | 2 | 3}).run();
+              } else {
+                editor.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 }).run();
+              }
+            }}
+            value={
+              editor.isActive('heading', { level: 1 }) ? '1' :
+                editor.isActive('heading', { level: 2 }) ? '2' :
+                  editor.isActive('heading', { level: 3 }) ? '3' :
+                    '0'
             }
-           }}  
-           value={
-            editor.isActive('heading', {level: 1}) ? '1' : 
-            editor.isActive('heading', {level: 2}) ? '2' : 
-            editor.isActive('heading', {level: 3}) ? '3' :
-            '0'
-           } 
-           className='p-1 rounded border text-sm'
-        >
-            <option value="0">Paragraph</option>
+            className='p-1.5 rounded-md border border-gray-600 bg-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'
+          >
+            <option value="0">Normal</option>
             <option value="1">Heading 1</option>
             <option value="2">Heading 2</option>
             <option value="3">Heading 3</option>
-        </select>
-        <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={editor.isActive('bulletList') ? 'active' : ''}
-        >
-          • List
-        </button>
+          </select>
+
+          <div className="w-px h-5 bg-gray-700 mx-1"></div>
+
+          <button
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className={`p-1.5 rounded-md transition-all duration-200 flex items-center gap-1 ${editor.isActive('bulletList')
+              ? 'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            title="Bullet List"
+          >
+            <span className="text-lg leading-none">•</span> List
+          </button>
         </div>
+
         <div>
-          <button onClick={handleCopy} className="flex items-center gap-1 p-1 hover:bg-gray-100 rounded"
-            aria-label="Copy to clipboard">
-            <ClipboardIcon copied={copied}/>
-          {copied ? 'Copied!' : 'Copy'}
+          <button
+            onClick={handleCopy}
+            className={`flex items-center gap-1.5 p-1.5 px-3 rounded-md transition-all duration-200 text-sm font-medium ${copied
+              ? 'bg-green-500/20 text-green-400 border border-green-500/20'
+              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+              }`}
+            aria-label="Copy to clipboard"
+          >
+            <ClipboardIcon copied={copied} />
+            {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
       </div>

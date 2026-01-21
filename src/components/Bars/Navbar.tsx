@@ -43,38 +43,38 @@ export function Navbar() {
     <>
       {/* Success/Error Messages */}
       {(success || error) && (
-        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 animate-fade-in">
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-[110] animate-fade-in w-full max-w-md px-4">
           {success && (
-            <div className="bg-emerald-600/90 backdrop-blur-xl text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-400/20 flex items-center space-x-3">
-              <div className="w-6 h-6 bg-emerald-400 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-900" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-emerald-900/90 backdrop-blur-xl text-white px-6 py-4 rounded-2xl shadow-2xl border border-emerald-500/30 flex items-center space-x-3">
+              <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-emerald-950" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               </div>
               <span className="font-medium">{success}</span>
               <button
                 onClick={() => setSuccess(null)}
-                className="ml-2 text-emerald-200 hover:text-white transition-colors p-1"
+                className="ml-auto text-emerald-200 hover:text-white transition-colors p-1"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
             </div>
           )}
           {error && (
-            <div className="bg-rose-600/90 backdrop-blur-xl text-white px-6 py-4 rounded-2xl shadow-2xl border border-rose-400/20 flex items-center space-x-3">
-              <div className="w-6 h-6 bg-rose-400 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-rose-900" fill="currentColor" viewBox="0 0 20 20">
+            <div className="bg-rose-900/90 backdrop-blur-xl text-white px-6 py-4 rounded-2xl shadow-2xl border border-rose-500/30 flex items-center space-x-3">
+              <div className="w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-rose-950" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               </div>
               <span className="font-medium">{error}</span>
               <button
                 onClick={() => setError(null)}
-                className="ml-2 text-rose-200 hover:text-white transition-colors p-1"
+                className="ml-auto text-rose-200 hover:text-white transition-colors p-1"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -83,14 +83,14 @@ export function Navbar() {
         </div>
       )}
 
-      <nav className="bg-slate-900/80 backdrop-blur-2xl border-b border-slate-700/50 sticky top-0 z-[100] shadow-2xl">
+      <nav className="bg-gray-900/80 backdrop-blur-2xl border-b border-gray-800 sticky top-0 z-[100] shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left side - Logo and main nav */}
             <div className="flex items-center space-x-4 md:space-x-8">
               <button
                 onClick={() => navigate("/")}
-                className="group text-xl md:text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white via-emerald-200 to-cyan-200 bg-clip-text text-transparent hover:from-emerald-300 hover:via-cyan-300 hover:to-blue-300 transition-all duration-300 transform hover:scale-105"
+                className="group text-xl md:text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent hover:from-white hover:via-emerald-200 hover:to-cyan-200 transition-all duration-300 transform hover:scale-105"
               >
                 DROPVAULT
                 <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-300 mt-1 mx-auto"></div>
@@ -98,11 +98,11 @@ export function Navbar() {
 
               {user && (
                 <div className="flex items-center space-x-1">
-                  <div className="w-px h-6 bg-slate-600"></div>
+                  <div className="w-px h-6 bg-gray-700"></div>
 
                   <button
                     onClick={() => navigate("/main")}
-                    className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-emerald-300 font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 group"
+                    className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-emerald-400 font-medium transition-all duration-200 rounded-xl hover:bg-gray-800/50 group"
                   >
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -112,7 +112,7 @@ export function Navbar() {
 
                   <button
                     onClick={() => navigate("/rooms")}
-                    className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-cyan-300 font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 group"
+                    className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-cyan-400 font-medium transition-all duration-200 rounded-xl hover:bg-gray-800/50 group"
                   >
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -131,7 +131,7 @@ export function Navbar() {
                 <>
                   <button
                     onClick={() => navigate("/dashboard")}
-                    className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-orange-300 font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 group"
+                    className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-orange-400 font-medium transition-all duration-200 rounded-xl hover:bg-gray-800/50 group"
                   >
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -139,17 +139,17 @@ export function Navbar() {
                     <span className="hidden sm:inline">Dashboard</span>
                   </button>
 
-                  <div className="w-px h-6 bg-slate-600"></div>
+                  <div className="w-px h-6 bg-gray-700"></div>
 
                   <button
                     onClick={handleSignOut}
                     disabled={isSigningOut}
-                    className="group relative flex items-center space-x-2 bg-slate-800/60 hover:bg-slate-700/80 border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 disabled:cursor-not-allowed transform hover:scale-105"
+                    className="group relative flex items-center space-x-2 bg-gray-800/60 hover:bg-gray-700/80 border border-gray-700 hover:border-gray-600 text-gray-300 hover:text-white px-4 py-2 rounded-xl font-medium transition-all duration-200 disabled:cursor-not-allowed transform hover:scale-105"
                   >
                     <div className="relative flex items-center space-x-2">
                       {isSigningOut ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                           <span className="hidden sm:inline">Signing Out...</span>
                         </>
                       ) : (
@@ -167,7 +167,7 @@ export function Navbar() {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => navigate("/login")}
-                    className="px-4 py-2 text-slate-300 hover:text-white font-medium transition-all duration-200 rounded-xl hover:bg-slate-800/50 transform hover:scale-105"
+                    className="px-4 py-2 text-gray-300 hover:text-white font-medium transition-all duration-200 rounded-xl hover:bg-gray-800/50 transform hover:scale-105"
                   >
                     Login
                   </button>

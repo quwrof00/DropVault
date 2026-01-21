@@ -4,7 +4,7 @@ import { useAuthUser } from "../../hooks/useAuthUser";
 import { useNavigate } from "react-router-dom";
 import Editor from "../Editor/Editor";
 import CollabEditor from "../CollabEditor";
-import { encrypt, decrypt } from "../../lib/crypto-helper";
+import { encrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
 import { Dialog, type DialogProps } from "../UI/Dialog";
 
@@ -34,6 +34,8 @@ export default function Notes({ roomId }: NotesProps) {
   const [text, setText] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
+  const [decryptProgress, setDecryptProgress] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +99,10 @@ export default function Notes({ roomId }: NotesProps) {
     }
   }, [user, roomId]);
 
-  // Fetch notes (personal or room notes)
+  // Worker ref
+  const decryptWorkerRef = useRef<Worker | null>(null);
+
+  // Fetch notes (personal or room notes) - Worker Implementation
   const fetchNotes = useCallback(async () => {
     if (user === undefined) return;
 
@@ -107,7 +112,19 @@ export default function Notes({ roomId }: NotesProps) {
     }
 
     setIsLoading(true);
+    setDecryptProgress(0);
     setError(null);
+
+    // Terminate existing worker if any
+    if (decryptWorkerRef.current) {
+      decryptWorkerRef.current.terminate();
+    }
+
+    // Initialize new worker
+    const worker = new Worker(new URL('../../workers/decryptWorker.ts', import.meta.url), {
+      type: 'module'
+    });
+    decryptWorkerRef.current = worker;
 
     try {
       const secretKey = roomId ?? user.id;
@@ -136,76 +153,96 @@ export default function Notes({ roomId }: NotesProps) {
         console.error("Failed to fetch Supabase notes", error);
         setError("Failed to load notes. Please try again.");
         setFiles({});
+        setIsLoading(false);
         return;
       }
 
-      // ---------------------------------------------------------
-      // 2. Decrypt notes into local object
-      // ---------------------------------------------------------
-      const supabaseNotes: Record<string, string> = {};
-
-      for (const note of supabaseData ?? []) {
-        const { title, ciphertext, iv, salt } = note;
-
-        try {
-          supabaseNotes[title] =
-            ciphertext && iv && salt
-              ? await decrypt({ ciphertext, iv, salt }, secretKey)
-              : "";
-        } catch (err) {
-          console.error("Decrypt failed for:", title, err);
-          supabaseNotes[title] =
-            "[Decryption failed - please check your access permissions]";
-        }
+      if (!supabaseData || supabaseData.length === 0) {
+        setFiles({});
+        setIsLoading(false);
+        setCurrentFile("");
+        setText("");
+        lastSavedTextRef.current = "";
+        return;
       }
 
-      if (!isMountedRef.current) return;
-
-      setFiles(supabaseNotes);
+      // Notes fetched, now start "Decrypting" phase
+      // We set isLoading to false so the UI can render immediately (empty list first)
+      // And set isDecrypting to true to show progress
+      setIsLoading(false);
+      setIsDecrypting(true);
 
       // ---------------------------------------------------------
-      // 3. Determine which file to open
+      // 2. Offload Decryption to Worker
       // ---------------------------------------------------------
 
-      const currentExists =
-        currentFile && supabaseNotes[currentFile] !== undefined;
+      // Temporary storage to help determine "first file"
+      let firstDecrypted = false;
 
-      // A. If current file does not exist → pick newest real file
-      if (!currentExists) {
-        const firstFile = (supabaseData ?? [])
-          .map((n) => n.title)
-          .find((title) => !title.endsWith("/.placeholder"));
+      worker.onmessage = (e) => {
+        const { type, payload, progress } = e.data;
 
-        if (firstFile) {
-          setCurrentFile(firstFile);
-          setText(supabaseNotes[firstFile]);
-          lastSavedTextRef.current = supabaseNotes[firstFile];
-        } else {
-          // No files at all
-          setCurrentFile("");
-          setText("");
-          lastSavedTextRef.current = "";
+        if (type === 'batch') {
+          // Update progress
+          if (typeof progress === 'number') {
+            setDecryptProgress(Math.round(progress * 100));
+          }
+
+          // payload is an array of { title, content }
+          const batchResults: Record<string, string> = {};
+          payload.forEach((item: { title: string; content: string }) => {
+            batchResults[item.title] = item.content;
+          });
+
+          setFiles(prev => ({
+            ...prev,
+            ...batchResults
+          }));
+
+          // Logic to open the first file automatically (if not already selected)
+          // We iterate through the batch to see if we found a candidate
+          if (!firstDecrypted && !currentFile) {
+            const candidate = payload.find((p: { title: string }) => !p.title.endsWith("/.placeholder"));
+            if (candidate) {
+              firstDecrypted = true;
+              setCurrentFile(candidate.title);
+              setText(candidate.content);
+              lastSavedTextRef.current = candidate.content;
+            }
+          }
+
+          // If the currently open file is in this batch, refresh it (e.g. initial load overwrite)
+          if (currentFile && batchResults[currentFile] !== undefined) {
+            setText(batchResults[currentFile]);
+            lastSavedTextRef.current = batchResults[currentFile];
+          }
         }
-      } else {
-        // B. File exists → refresh its content
-        const updatedContent = supabaseNotes[currentFile];
-        if (updatedContent !== undefined) {
-          setText(updatedContent);
-          lastSavedTextRef.current = updatedContent;
+        else if (type === 'done') {
+          setIsDecrypting(false);
+          setDecryptProgress(100);
+          isInitialLoadRef.current = false;
         }
-      }
+      };
+
+      worker.onerror = (err) => {
+        console.error("Worker error:", err);
+        setError("Error decrypting notes.");
+        setIsDecrypting(false);
+        setIsLoading(false);
+      };
+
+      // Feed chunks to worker
+      worker.postMessage({ notes: supabaseData, secretKey });
+
     } catch (err) {
       console.error("Error loading notes:", err);
       if (isMountedRef.current) {
         setError("An unexpected error occurred while loading notes.");
-      }
-    } finally {
-      if (isMountedRef.current) {
         setIsLoading(false);
-        isInitialLoadRef.current = false;
+        setIsDecrypting(false); // Ensure decrypting is false on error
       }
     }
-  }, [user, navigate, roomId]);
+  }, [user, navigate, roomId, currentFile]);
 
   useEffect(() => {
     fetchNotes();
@@ -268,6 +305,10 @@ export default function Notes({ roomId }: NotesProps) {
 
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+      }
+
+      if (decryptWorkerRef.current) {
+        decryptWorkerRef.current.terminate();
       }
 
       if (user && !roomId && currentFile && text !== lastSavedTextRef.current) {
@@ -608,7 +649,7 @@ export default function Notes({ roomId }: NotesProps) {
       />
 
       <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden bg-gray-700 transition-all duration-300">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
           <div className="flex items-center gap-3">
             {/* Mobile Menu Trigger */}
             <button
@@ -619,9 +660,22 @@ export default function Notes({ roomId }: NotesProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 flex items-center space-x-3">
-              <span>{currentFile ? currentFile.split('/').pop() : "No Note Selected"}</span>
-            </h2>
+            <div className="flex flex-col">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-200 flex items-center space-x-3">
+                <span>{currentFile ? currentFile.split('/').pop() : "No Note Selected"}</span>
+              </h2>
+              {isDecrypting && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <div className="w-24 h-1.5 bg-gray-600 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 transition-all duration-300 ease-out"
+                      style={{ width: `${decryptProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-blue-300 font-medium">{decryptProgress}% Decrypted</span>
+                </div>
+              )}
+            </div>
 
             {isSaving && !roomId && (
               <div className="flex items-center space-x-2 text-blue-400 ml-4">
@@ -652,9 +706,11 @@ export default function Notes({ roomId }: NotesProps) {
               <div className="text-center">
                 <p className="text-lg mb-2">No note selected</p>
                 <p className="text-sm opacity-75">
-                  {Object.keys(files).length === 0
-                    ? "Create your first note to get started"
-                    : "Select a note from the sidebar to begin editing"
+                  {Object.keys(files).length === 0 && isDecrypting
+                    ? "Decrypting your notes..."
+                    : Object.keys(files).length === 0
+                      ? "Create your first note to get started"
+                      : "Select a note from the sidebar to begin editing"
                   }
                 </p>
               </div>
