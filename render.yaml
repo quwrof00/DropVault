@@ -1,0 +1,25 @@
+services:
+  # The Backend WebSocket Server
+  - type: web
+    name: dropvault-collab
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/index.js
+    envVars:
+      - key: PORT
+        value: 10000
+
+  # The Frontend Static Site
+  - type: static
+    name: dropvault-web
+    env: static
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_WS_URL
+        sync: false # You must set this to the WebSocket server URL (e.g., wss://dropvault-collab.onrender.com)

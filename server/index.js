@@ -1,5 +1,5 @@
 import http from "http";
-import WebSocket from "ws";
+import { WebSocketServer } from "ws";
 import { setupWSConnection } from "@y/websocket-server/utils";
 import * as url from "url";
 
@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
     res.end("Yjs server running");
 });
 
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", (conn, req) => {
     const location = url.parse(req.url, true);

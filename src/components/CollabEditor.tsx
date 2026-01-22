@@ -24,47 +24,26 @@ const ClipboardIcon = ({ copied }: { copied: boolean }) => (
 const COLORS = ['#958DF1', '#F98181', '#FBBC88', '#FAF594', '#70CFF8', '#94FADB', '#B9F18D'];
 const getRandomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
-export default function CollabEditor({
+// Internal component to handle the actual editor instance once provider is ready
+function TiptapEditor({
+  provider,
+  doc,
+  initialContent,
   roomId,
   fileName,
+  onCopy,
+  onSave
 }: {
+  provider: WebsocketProvider;
+  doc: Y.Doc;
+  initialContent?: string;
   roomId: string;
   fileName: string;
+  onCopy: (text: string) => void;
+  onSave: (content: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState('connecting');
-  const providerRef = useRef<WebsocketProvider | null>(null);
-  const ydocRef = useRef<Y.Doc>(new Y.Doc());
   const lastSavedContent = useRef<string>("");
-
-  // Persistence Logic
-  const saveToSupabase = useCallback(async (content: string) => {
-    // Don't save empty content if it wasn't empty before (safety check)
-    if (!content && lastSavedContent.current) return;
-
-    console.log("Saving to Supabase:", fileName);
-    try {
-      const encrypted = await encrypt(content, roomId); // Encrypt with roomId as key for now
-
-      const { error } = await supabase
-        .from("notes")
-        .upsert({
-          room_id: roomId,
-          title: fileName,
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          salt: encrypted.salt,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'room_id,title' });
-
-      if (error) console.error("Error saving collab note:", error);
-      else lastSavedContent.current = content;
-
-    } catch (err) {
-      console.error("Encryption/Save failed:", err);
-    }
-  }, [roomId, fileName]);
-
+  const [copied, setCopied] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -73,79 +52,47 @@ export default function CollabEditor({
       }),
       Underline,
       Collaboration.configure({
-        document: ydocRef.current,
+        document: doc,
       }),
       CollaborationCursor.configure({
-        provider: providerRef.current as any,
+        provider: provider,
         user: {
-          name: 'Anonymous', // Could fetch from auth
+          name: 'Anonymous',
           color: getRandomColor(),
         },
       }),
     ],
+    content: initialContent,
     editorProps: {
       attributes: {
         class: 'ProseMirror outline-none h-full',
       },
     },
-    onUpdate: () => {
-      // Debounced save is handled by the useEffect interval
+    onUpdate: ({ editor }) => {
+      // Debounce logic can be handled here or by effect, but let's stick to effect for now or simple timeout
     }
   });
 
-  // Setup Provider & Debounced Save
+  // Debounced save
   useEffect(() => {
-    // 1. Setup Websocket
-    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:1234'; // Ensure this matches your server
-    const provider = new WebsocketProvider(wsUrl, `${roomId}-${fileName}`, ydocRef.current);
-    providerRef.current = provider;
-
-    provider.on('status', (event: { status: string }) => {
-      setStatus(event.status);
-    });
-
-    // 2. Setup Auto-save interval
-    const saveInterval = setInterval(() => {
-      if (!editor) return;
-      const currentContent = editor.getHTML();
-
-      // Only save if changed significantly (naive check)
-      if (currentContent !== lastSavedContent.current) {
-        saveToSupabase(currentContent);
-      }
-    }, 5000); // Save every 5 seconds if changed
-
-    return () => {
-      provider.destroy();
-      clearInterval(saveInterval);
-      ydocRef.current.destroy();
-    };
-  }, [roomId, fileName, editor, saveToSupabase]);
-
-  // Re-configure collaboration extension provider when it's available
-  useEffect(() => {
-    if (editor && providerRef.current) {
-      // This is a bit tricky with Tiptap. Ideally provider is ready at init.
-      // But since we use ref, we might need to recreate editor or update extension options.
-      // However, standard pattern is usually create provider -> create editor. 
-      // Let's refactor the order in next iteration if this fails.
-      // Actually, let's reload the whole component if roomId/fileName changes.
-    }
-  }, [editor, providerRef.current]);
-
-  // Refactoring: We should create provider before editor.
-  // But hooks order matters. 
-  // Let's destroy and recreate provider if room/file changes.
-
-  const handleCopy = async () => {
     if (!editor) return;
-    try {
-      const text = editor.getText();
-      await navigator.clipboard.writeText(text);
+
+    const interval = setInterval(() => {
+      const content = editor.getHTML();
+      if (content !== lastSavedContent.current) {
+        onSave(content);
+        lastSavedContent.current = content;
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [editor, onSave]);
+
+  const handleCopyBtn = () => {
+    if (editor) {
+      onCopy(editor.getText());
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy:', error);
+      setTimeout(() => setCopied(false), 2000);
     }
   }
 
@@ -155,7 +102,7 @@ export default function CollabEditor({
 
   return (
     <div className="editor-wrapper flex flex-col h-full">
-      {/* Toolbar - Copied from Editor.tsx for consistency */}
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 p-2 sticky top-0 z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md">
         <div className="flex items-center gap-1">
           <button
@@ -239,15 +186,12 @@ export default function CollabEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full border ${status === 'connected' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
-            {status === 'connected' ? 'Live' : 'Connecting...'}
+          <span className={`text-xs px-2 py-0.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-400`}>
+            Live
           </span>
           <button
-            onClick={handleCopy}
-            className={`flex items-center gap-1.5 p-1.5 px-3 rounded-md transition-all duration-200 text-sm font-medium ${copied
-              ? 'bg-green-500/20 text-green-400 border border-green-500/20'
-              : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
-              }`}
+            onClick={handleCopyBtn}
+            className={`flex items-center gap-1.5 p-1.5 px-3 rounded-md transition-all duration-200 text-sm font-medium ${copied ? 'text-green-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
             aria-label="Copy to clipboard"
           >
             <ClipboardIcon copied={copied} />
@@ -266,5 +210,94 @@ export default function CollabEditor({
         <span>File: {fileName}</span>
       </div>
     </div>
+  );
+}
+
+export default function CollabEditor({
+  roomId,
+  fileName,
+  initialContent,
+}: {
+  roomId: string;
+  fileName: string;
+  initialContent?: string;
+}) {
+  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+  const [doc, setDoc] = useState<Y.Doc | null>(null);
+  const lastSavedContent = useRef<string>("");
+
+  // Persistence Logic
+  const saveToSupabase = useCallback(async (content: string) => {
+    // Don't save empty content if it wasn't empty before (safety check)
+    if (!content && lastSavedContent.current) return;
+
+    console.log("Saving to Supabase:", fileName);
+    try {
+      const encrypted = await encrypt(content, roomId); // Encrypt with roomId as key for now
+
+      const { error } = await supabase
+        .from("notes")
+        .upsert({
+          room_id: roomId,
+          title: fileName,
+          ciphertext: encrypted.ciphertext,
+          iv: encrypted.iv,
+          salt: encrypted.salt,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'room_id,title' });
+
+      if (error) console.error("Error saving collab note:", error);
+      else lastSavedContent.current = content;
+
+    } catch (err) {
+      console.error("Encryption/Save failed:", err);
+    }
+  }, [roomId, fileName]);
+
+  // Doc and Provider Lifecycle
+  useEffect(() => {
+    const ydoc = new Y.Doc();
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:1234';
+    const wsProvider = new WebsocketProvider(wsUrl, `${roomId}-${fileName}`, ydoc);
+
+    setDoc(ydoc);
+    setProvider(wsProvider);
+
+    return () => {
+      wsProvider.destroy();
+      ydoc.destroy();
+      setProvider(null);
+      setDoc(null);
+    };
+  }, [roomId, fileName]);
+
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  }
+
+  // Only render editor when provider and doc are ready
+  if (!provider || !doc) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-400 space-x-2">
+        <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+        <span>Connecting to room...</span>
+      </div>
+    );
+  }
+
+  return (
+    <TiptapEditor
+      provider={provider}
+      doc={doc}
+      initialContent={initialContent}
+      roomId={roomId}
+      fileName={fileName}
+      onCopy={handleCopy}
+      onSave={saveToSupabase}
+    />
   );
 }

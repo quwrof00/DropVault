@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase-client";
 import { useAuthUser } from "../../hooks/useAuthUser";
 import { useNavigate } from "react-router-dom";
 import Editor from "../Editor/Editor";
+import CollabEditor from "../CollabEditor";
 import { encrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
 import { Dialog, type DialogProps } from "../UI/Dialog";
@@ -710,7 +711,11 @@ export default function Notes({ roomId }: NotesProps) {
         <div className="flex-1 flex flex-col min-h-0">
           {currentFile ? (
             <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
-              <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
+              {roomId ? (
+                <CollabEditor roomId={roomId} fileName={currentFile} initialContent={text} key={currentFile} />
+              ) : (
+                <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
+              )}
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-400">
