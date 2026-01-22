@@ -68,7 +68,7 @@ function TiptapEditor({
         class: 'ProseMirror outline-none h-full',
       },
     },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ }) => {
       // Debounce logic can be handled here or by effect, but let's stick to effect for now or simple timeout
     }
   });
