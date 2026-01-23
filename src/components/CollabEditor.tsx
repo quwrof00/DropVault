@@ -41,18 +41,37 @@ function TiptapEditor({
 }) {
   const [copied, setCopied] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
+  const [status, setStatus] = useState('connecting');
+  const [showWakeMessage, setShowWakeMessage] = useState(false);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (status === 'connecting') {
+      timeout = setTimeout(() => setShowWakeMessage(true), 4000); // Show wake message after 4s
+    } else {
+      setShowWakeMessage(false);
+    }
+    return () => clearTimeout(timeout);
+  }, [status]);
 
   useEffect(() => {
     if (provider) {
       const handleSync = (isSynced: boolean) => {
         setIsSynced(isSynced);
       };
+      const handleStatus = ({ status }: { status: string }) => {
+        setStatus(status);
+      };
+
       provider.on('sync', handleSync);
+      provider.on('status', handleStatus);
+
       // Check initial state
       if (provider.synced) setIsSynced(true);
 
       return () => {
         provider.off('sync', handleSync);
+        provider.off('status', handleStatus);
       };
     }
   }, [provider]);
@@ -186,9 +205,29 @@ function TiptapEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full border ${isSynced ? 'border-green-500/20 bg-green-500/10 text-green-400' : 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'}`}>
-            {isSynced ? 'Live' : 'Syncing...'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`relative flex h-2 w-2`}>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status === 'connected' && isSynced ? 'bg-green-400' :
+                status === 'connected' && !isSynced ? 'bg-yellow-400' :
+                  status === 'disconnected' ? 'bg-red-400' :
+                    'bg-orange-400'
+                }`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${status === 'connected' && isSynced ? 'bg-green-500' :
+                status === 'connected' && !isSynced ? 'bg-yellow-500' :
+                  status === 'disconnected' ? 'bg-red-500' :
+                    'bg-orange-500'
+                }`}></span>
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full border ${status === 'connected' && isSynced ? 'border-green-500/20 bg-green-500/10 text-green-400' :
+              status === 'connected' && !isSynced ? 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400' :
+                status === 'disconnected' ? 'border-red-500/20 bg-red-500/10 text-red-400' :
+                  'border-orange-500/20 bg-orange-500/10 text-orange-400'
+              }`}>
+              {status === 'connected'
+                ? (isSynced ? 'Live' : 'Syncing...')
+                : (status === 'disconnected' ? 'Offline' : (showWakeMessage ? 'Waking server...' : 'Connecting...'))}
+            </span>
+          </div>
           <button
             onClick={handleCopyBtn}
             className={`flex items-center gap-1.5 p-1.5 px-3 rounded-md transition-all duration-200 text-sm font-medium ${copied ? 'text-green-400' : 'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
