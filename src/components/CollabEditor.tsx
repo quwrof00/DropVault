@@ -104,6 +104,11 @@ function TiptapEditor({
       // We use getText() or getHTML() depending on what is needed.
       // Notes.tsx uses string encryption. HTML is string.
       onUpdate(editor.getHTML());
+    },
+    onCreate: ({ editor }) => {
+      if (initialContent && editor.isEmpty) {
+        editor.commands.setContent(initialContent);
+      }
     }
   });
 
