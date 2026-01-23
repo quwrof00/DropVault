@@ -7,7 +7,7 @@ import { Navbar } from "./components/Bars/Navbar";
 import RoomMain from "./pages/RoomMain";
 import Main from "./pages/Main";
 import Footer from "./components/Bars/Footer";
-import { ToastContainer } from "react-toastify";
+import { Toaster } from "react-hot-toast";
 import Dashboard from "./pages/Dashboard";
 import { Protector } from "./components/Auth/Protector";
 
@@ -29,7 +29,16 @@ function App() {
         <Route path="/room" element={<Protector><RoomMain /></Protector>} />
       </Routes>
       {isHomePage && <Footer />}
-      <ToastContainer className='rounded' position="top-center" autoClose={2000} style={{ zIndex: 9999 }} />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: '#333',
+            color: '#fff',
+          },
+          className: 'backdrop-blur-lg bg-gray-800/90 text-white border border-gray-700',
+        }}
+      />
     </>
   )
 }

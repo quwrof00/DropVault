@@ -10,7 +10,6 @@ import { supabase } from "../lib/supabase-client";
 import { encrypt } from '../lib/crypto-helper';
 import './Editor/editor.css';
 
-// Reusing the Icon component for now
 const ClipboardIcon = ({ copied }: { copied: boolean }) => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     {copied ? (
@@ -258,7 +257,7 @@ export default function CollabEditor({
   useEffect(() => {
     const ydoc = new Y.Doc();
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:1234';
-    const wsProvider = new WebsocketProvider(wsUrl, `${roomId}-${fileName}`, ydoc);
+    const wsProvider = new WebsocketProvider(wsUrl, `${roomId}-${encodeURIComponent(fileName)}`, ydoc);
 
     setDoc(ydoc);
     setProvider(wsProvider);
