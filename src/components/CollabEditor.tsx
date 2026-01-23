@@ -104,13 +104,15 @@ function TiptapEditor({
       // We use getText() or getHTML() depending on what is needed.
       // Notes.tsx uses string encryption. HTML is string.
       onUpdate(editor.getHTML());
-    },
-    onCreate: ({ editor }) => {
-      if (initialContent && editor.isEmpty) {
-        editor.commands.setContent(initialContent);
-      }
     }
   });
+
+  // Handle initial content when server is empty
+  useEffect(() => {
+    if (editor && isSynced && initialContent && editor.isEmpty) {
+      editor.commands.setContent(initialContent);
+    }
+  }, [isSynced, editor, initialContent]);
 
   const handleCopyBtn = () => {
     if (editor) {
