@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -6,8 +6,6 @@ import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
-import { supabase } from "../lib/supabase-client";
-import { encrypt } from '../lib/crypto-helper';
 import './Editor/editor.css';
 
 const ClipboardIcon = ({ copied }: { copied: boolean }) => (
@@ -31,7 +29,7 @@ function TiptapEditor({
   roomId,
   fileName,
   onCopy,
-  onSave
+  onUpdate
 }: {
   provider: WebsocketProvider;
   doc: Y.Doc;
@@ -39,10 +37,25 @@ function TiptapEditor({
   roomId: string;
   fileName: string;
   onCopy: (text: string) => void;
-  onSave: (content: string) => void;
+  onUpdate: (content: string) => void;
 }) {
-  const lastSavedContent = useRef<string>("");
   const [copied, setCopied] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
+
+  useEffect(() => {
+    if (provider) {
+      const handleSync = (isSynced: boolean) => {
+        setIsSynced(isSynced);
+      };
+      provider.on('sync', handleSync);
+      // Check initial state
+      if (provider.synced) setIsSynced(true);
+
+      return () => {
+        provider.off('sync', handleSync);
+      };
+    }
+  }, [provider]);
 
   const editor = useEditor({
     extensions: [
@@ -67,25 +80,13 @@ function TiptapEditor({
         class: 'ProseMirror outline-none h-full',
       },
     },
-    onUpdate: ({ }) => {
-      // Debounce logic can be handled here or by effect, but let's stick to effect for now or simple timeout
+    onUpdate: ({ editor }) => {
+      // Send updates to parent immediately (parent handles debouncing)
+      // We use getText() or getHTML() depending on what is needed.
+      // Notes.tsx uses string encryption. HTML is string.
+      onUpdate(editor.getHTML());
     }
   });
-
-  // Debounced save
-  useEffect(() => {
-    if (!editor) return;
-
-    const interval = setInterval(() => {
-      const content = editor.getHTML();
-      if (content !== lastSavedContent.current) {
-        onSave(content);
-        lastSavedContent.current = content;
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [editor, onSave]);
 
   const handleCopyBtn = () => {
     if (editor) {
@@ -185,8 +186,8 @@ function TiptapEditor({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full border border-green-500/20 bg-green-500/10 text-green-400`}>
-            Live
+          <span className={`text-xs px-2 py-0.5 rounded-full border ${isSynced ? 'border-green-500/20 bg-green-500/10 text-green-400' : 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400'}`}>
+            {isSynced ? 'Live' : 'Syncing...'}
           </span>
           <button
             onClick={handleCopyBtn}
@@ -216,42 +217,15 @@ export default function CollabEditor({
   roomId,
   fileName,
   initialContent,
+  onUpdate
 }: {
   roomId: string;
   fileName: string;
   initialContent?: string;
+  onUpdate: (content: string) => void;
 }) {
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
   const [doc, setDoc] = useState<Y.Doc | null>(null);
-  const lastSavedContent = useRef<string>("");
-
-  // Persistence Logic
-  const saveToSupabase = useCallback(async (content: string) => {
-    // Don't save empty content if it wasn't empty before (safety check)
-    if (!content && lastSavedContent.current) return;
-
-    console.log("Saving to Supabase:", fileName);
-    try {
-      const encrypted = await encrypt(content, roomId); // Encrypt with roomId as key for now
-
-      const { error } = await supabase
-        .from("notes")
-        .upsert({
-          room_id: roomId,
-          title: fileName,
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          salt: encrypted.salt,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'room_id,title' });
-
-      if (error) console.error("Error saving collab note:", error);
-      else lastSavedContent.current = content;
-
-    } catch (err) {
-      console.error("Encryption/Save failed:", err);
-    }
-  }, [roomId, fileName]);
 
   // Doc and Provider Lifecycle
   useEffect(() => {
@@ -296,7 +270,7 @@ export default function CollabEditor({
       roomId={roomId}
       fileName={fileName}
       onCopy={handleCopy}
-      onSave={saveToSupabase}
+      onUpdate={onUpdate}
     />
   );
 }
