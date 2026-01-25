@@ -148,16 +148,7 @@ export default function Files({ roomId }: FilesProps) {
     };
   }, []);
 
-  if (user === undefined) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-800">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-blue-500"></div>
-          <p className="text-gray-300 text-lg font-medium">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   const getPublicUrl = (fileName: string) => {
     if (!user) return;
@@ -259,13 +250,15 @@ export default function Files({ roomId }: FilesProps) {
   };
 
 
-  const processFiles = async (fileList: FileList) => {
+  const processFiles = async (filesInput: FileList | File[]) => {
     if (!user) return;
 
     const validFiles: File[] = [];
     const errors: string[] = [];
 
-    for (const file of Array.from(fileList)) {
+    const fileList = Array.isArray(filesInput) ? filesInput : Array.from(filesInput);
+
+    for (const file of fileList) {
       if (file.size > 50 * 1024 * 1024) {
         errors.push(`"${file.name}" is too large (max 50MB)`);
         continue;
@@ -317,6 +310,33 @@ export default function Files({ roomId }: FilesProps) {
       await uploadToSupabase(newEntry);
     }
   };
+
+  // Handle paste events
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            pastedFiles.push(file);
+          }
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        await processFiles(pastedFiles);
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [processFiles]);
 
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -469,6 +489,17 @@ export default function Files({ roomId }: FilesProps) {
   };
 
 
+
+  if (user === undefined) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-800">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-blue-500"></div>
+          <p className="text-gray-300 text-lg font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredFiles = Object.entries(files)
     .filter(([name]) => name.toLowerCase().includes(searchTerm.toLowerCase()))

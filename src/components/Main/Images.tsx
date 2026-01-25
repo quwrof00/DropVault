@@ -177,16 +177,7 @@ export default function Images({ roomId }: ImagesProps) {
     }
   }, [files])
 
-  if (user === undefined) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-800">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-blue-500"></div>
-          <p className="text-gray-300 text-lg font-medium">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+
 
   const uploadToSupabase = async (fileEntry: FileEntry) => {
     if (!user) return
@@ -303,13 +294,15 @@ export default function Images({ roomId }: ImagesProps) {
     return newName
   }
 
-  const processFiles = async (fileList: FileList) => {
+  const processFiles = async (filesInput: FileList | File[]) => {
     if (!user) return
 
     const validFiles: File[] = []
     const errors: string[] = []
 
-    for (const file of Array.from(fileList)) {
+    const fileList = Array.isArray(filesInput) ? filesInput : Array.from(filesInput)
+
+    for (const file of fileList) {
       if (!isImageFile(file.name)) {
         errors.push(`"${file.name}" is not a valid image file`)
         continue
@@ -384,6 +377,32 @@ export default function Images({ roomId }: ImagesProps) {
       setDragOver(false)
     }
   }
+
+  // Handle paste events
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      const pastedFiles: File[] = []
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile()
+          if (file) {
+            pastedFiles.push(file)
+          }
+        }
+      }
+
+      if (pastedFiles.length > 0) {
+        e.preventDefault()
+        await processFiles(pastedFiles)
+      }
+    }
+
+    window.addEventListener("paste", handlePaste)
+    return () => window.removeEventListener("paste", handlePaste)
+  }, [processFiles])
 
   // Dialog Helpers
   const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
@@ -561,6 +580,17 @@ export default function Images({ roomId }: ImagesProps) {
   }
 
 
+
+  if (user === undefined) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-800">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-600 border-t-blue-500"></div>
+          <p className="text-gray-300 text-lg font-medium">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   const filteredFiles = Object.entries(files)
     .filter(([name]) => isImageFile(name))
