@@ -3,6 +3,8 @@ import { useAuthUser } from "../../hooks/useAuthUser";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, type DialogProps } from "../UI/Dialog";
+import ItemDiscussion from "./ItemDiscussion";
+import { useItemCounts } from "../../hooks/useItemCounts";
 
 type FileEntry = {
   name: string;
@@ -84,13 +86,22 @@ export default function Files({ roomId }: FilesProps) {
   const [files, setFiles] = useState<{ [key: string]: FileEntry }>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [newFileName, setNewFileName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
 
+  // Real-time comment counts
+  const itemCounts = useItemCounts(roomId, 'file');
+
   const progressIntervals = useRef<{ [key: string]: NodeJS.Timeout }>({});
+
+  // ... (useEffect and helpers unchanged) ...
+
+  // ... (inside map) ...
+
 
   useEffect(() => {
     if (user === undefined) return;
@@ -648,6 +659,7 @@ export default function Files({ roomId }: FilesProps) {
                       />
                     </div>
                     <div className="flex gap-2">
+                      {/* Save/Cancel buttons same as before */}
                       <button
                         onClick={() => handleRename(name, newFileName.trim())}
                         disabled={isRenaming}
@@ -669,105 +681,132 @@ export default function Files({ roomId }: FilesProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${fileIcon.bg} flex items-center justify-center text-sm sm:text-lg flex-shrink-0`}>
-                        {fileIcon.icon}
-                      </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${fileIcon.bg} flex items-center justify-center text-sm sm:text-lg flex-shrink-0`}>
+                          {fileIcon.icon}
+                        </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={getPublicUrl(name)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-medium text-sm sm:text-base text-gray-200 hover:text-blue-400 transition-colors duration-200 truncate"
-                            title={name}
-                          >
-                            {name}
-                          </a>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={getPublicUrl(name)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-medium text-sm sm:text-base text-gray-200 hover:text-blue-400 transition-colors duration-200 truncate"
+                              title={name}
+                            >
+                              {name}
+                            </a>
 
-                          {/* Status Badge */}
-                          {file.uploaded ? (
-                            <div className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
-                              ✓ Uploaded
-                            </div>
-                          ) : uploadingFiles.has(name) ? (
-                            <div className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
-                              ⏳ {Math.round(file.progress)}%
-                            </div>
-                          ) : (
-                            <div className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
-                              ✗ Failed
+                            {/* Status Badge */}
+                            {file.uploaded ? (
+                              <div className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+                                ✓ Uploaded
+                              </div>
+                            ) : uploadingFiles.has(name) ? (
+                              <div className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+                                ⏳ {Math.round(file.progress)}%
+                              </div>
+                            ) : (
+                              <div className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">
+                                ✗ Failed
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-gray-500">
+                              {formatFileSize(file.size || file.blob?.size || 0)}
+                            </p>
+                            <span className="text-gray-600">•</span>
+                            <p className="text-xs text-gray-500">
+                              {new Date(file.lastModified).toLocaleDateString()}
+                            </p>
+                          </div>
+
+                          {/* Progress Bar */}
+                          {!file.uploaded && uploadingFiles.has(name) && (
+                            <div className="w-full bg-gray-600 rounded-full h-1.5 mt-2">
+                              <div
+                                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${file.progress}%` }}
+                              />
                             </div>
                           )}
                         </div>
+                      </div>
 
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size || file.blob?.size || 0)}
-                          </p>
-                          <span className="text-gray-600">•</span>
-                          <p className="text-xs text-gray-500">
-                            {new Date(file.lastModified).toLocaleDateString()}
-                          </p>
-                        </div>
-
-                        {/* Progress Bar for Uploading Files */}
-                        {!file.uploaded && uploadingFiles.has(name) && (
-                          <div className="w-full bg-gray-600 rounded-full h-1.5 mt-2">
-                            <div
-                              className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                              style={{ width: `${file.progress}%` }}
-                            />
-                          </div>
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
+                        {file.uploaded && (
+                          <button
+                            onClick={() => setExpandedFile(expandedFile === name ? null : name)}
+                            className={`relative p-1.5 sm:p-2 rounded-lg transition-all duration-200 ${expandedFile === name ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
+                            title="Discussion"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            {/* Make sure itemCounts is available from local scope, it was defined as const itemCounts = useItemCounts(...) at top of component */}
+                            {itemCounts[name] > 0 && (
+                              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white ring-2 ring-gray-900">
+                                {itemCounts[name] > 99 ? '99+' : itemCounts[name]}
+                              </span>
+                            )}
+                          </button>
                         )}
+
+                        {file.uploaded && (
+                          <>
+                            <a
+                              href={getPublicUrl(name)}
+                              download={name}
+                              className="p-1.5 sm:p-2 text-gray-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-all duration-200"
+                              title="Download file"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </a>
+
+                            <button
+                              onClick={() => {
+                                setRenamingFile(name);
+                                setNewFileName(name.replace(/\.[^/.]+$/, ""));
+                              }}
+                              className="p-1.5 sm:p-2 text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-all duration-200"
+                              title="Rename file"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          onClick={() => handleDelete(name)}
+                          className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all duration-200"
+                          title="Delete file"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
-                      {file.uploaded && (
-                        <>
-                          <a
-                            href={getPublicUrl(name)}
-                            download={name}
-                            className="p-1.5 sm:p-2 text-gray-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg transition-all duration-200"
-                            title="Download file"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </a>
-
-                          <button
-                            onClick={() => {
-                              setRenamingFile(name);
-                              setNewFileName(name.replace(/\.[^/.]+$/, ""));
-                            }}
-                            className="p-1.5 sm:p-2 text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-all duration-200"
-                            title="Rename file"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-
-                      <button
-                        onClick={() => handleDelete(name)}
-                        className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all duration-200"
-                        title="Delete file"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
+                    {/* Discussion Area */}
+                    {expandedFile === name && (
+                      <div className="mt-4 border-t border-gray-600 pt-3 h-96">
+                        <ItemDiscussion itemId={name} itemType="file" roomId={roomId} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

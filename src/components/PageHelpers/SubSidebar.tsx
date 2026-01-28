@@ -14,6 +14,7 @@ interface SidebarProps {
   currentItem: string;
   typeLabel: string;
   isCreating: boolean;
+  itemCounts?: { [key: string]: number }; // Optional counts
 
   // New props for mobile control
   isOpen?: boolean; // Controlled by parent on mobile
@@ -40,6 +41,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
   currentItem,
   typeLabel,
   isCreating,
+  itemCounts = {}, // Default empty
   isOpen = false, // Default closed on mobile if not specified
   onClose
 }) => {
@@ -130,8 +132,14 @@ const SubSidebar: React.FC<SidebarProps> = ({
     const isExpanded = expandedFolders.has(node.fullPath);
     const isSelected = node.fullPath === currentItem;
     const paddingLeft = depth * 12 + 8;
+    const count = itemCounts[node.fullPath] || 0;
+
+    // ... (folder rendering) ...
 
     if (node.type === 'folder') {
+      // ...
+      // (Existing folder rendering logic)
+      // ...
       return (
         <div key={node.fullPath}>
           <div
@@ -181,6 +189,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <File size={14} className="text-blue-400 flex-shrink-0" />
           <span className={`truncate text-sm ${isSelected ? 'text-blue-300 font-medium' : 'text-gray-200'}`} title={node.name}>{node.name}</span>
+          {count > 0 && (
+            <span className="ml-2 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-1 ring-gray-900">
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
         </div>
 
         {(isDesktopOpen || window.innerWidth < 768) && (

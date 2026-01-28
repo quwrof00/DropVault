@@ -7,6 +7,8 @@ import CollabEditor from "../CollabEditor";
 import { encrypt } from "../../lib/crypto-helper";
 import SubSidebar from "../PageHelpers/SubSidebar";
 import { Dialog, type DialogProps } from "../UI/Dialog";
+import ItemDiscussion from "./ItemDiscussion";
+import { useItemCounts } from "../../hooks/useItemCounts";
 
 interface User {
   id: string;
@@ -41,8 +43,11 @@ export default function Notes({ roomId }: NotesProps) {
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
 
-  // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
+
+  // Real-time comment counts
+  const itemCounts = useItemCounts(roomId, 'note');
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
@@ -662,6 +667,7 @@ export default function Notes({ roomId }: NotesProps) {
         isCreating={isCreating}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        itemCounts={itemCounts}
       />
 
       <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden bg-gray-700 transition-all duration-300">
@@ -699,6 +705,24 @@ export default function Notes({ roomId }: NotesProps) {
                 <span className="text-sm font-normal">Saving...</span>
               </div>
             )}
+
+            {/* Discussion Toggle */}
+            {currentFile && (
+              <button
+                onClick={() => setIsDiscussionOpen(!isDiscussionOpen)}
+                className={`ml-3 p-2 rounded-lg transition-all duration-200 relative ${isDiscussionOpen ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
+                title={isDiscussionOpen ? "Close Discussion" : "Open Discussion"}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {itemCounts[currentFile] > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white ring-2 ring-gray-900">
+                    {itemCounts[currentFile] > 99 ? '99+' : itemCounts[currentFile]}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {roomId && (
@@ -710,17 +734,25 @@ export default function Notes({ roomId }: NotesProps) {
 
         <div className="flex-1 flex flex-col min-h-0">
           {currentFile ? (
-            <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
-              {roomId ? (
-                <CollabEditor
-                  roomId={roomId}
-                  fileName={currentFile}
-                  initialContent={text}
-                  onUpdate={handleTextUpdate}
-                  key={currentFile}
-                />
-              ) : (
-                <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
+            <div className="flex-1 flex flex-col min-h-0 gap-4">
+              <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
+                {roomId ? (
+                  <CollabEditor
+                    roomId={roomId}
+                    fileName={currentFile}
+                    initialContent={text}
+                    onUpdate={handleTextUpdate}
+                    key={currentFile}
+                  />
+                ) : (
+                  <Editor content={text} onUpdate={handleTextUpdate} key={currentFile} />
+                )}
+              </div>
+
+              {isDiscussionOpen && (
+                <div className="h-72 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg overflow-hidden flex flex-col">
+                  <ItemDiscussion itemId={currentFile} itemType="note" roomId={roomId} />
+                </div>
               )}
             </div>
           ) : (

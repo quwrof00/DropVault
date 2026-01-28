@@ -6,6 +6,8 @@ import { useAuthUser } from "../../hooks/useAuthUser"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Dialog, type DialogProps } from "../UI/Dialog"
+import ItemDiscussion from "./ItemDiscussion"
+import { useItemCounts } from "../../hooks/useItemCounts"
 
 type FileEntry = {
   name: string
@@ -60,6 +62,9 @@ export default function Images({ roomId }: ImagesProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+
+  // Real-time comment counts
+  const itemCounts = useItemCounts(roomId, 'image');
 
   const prefixes = useMemo(() => {
     if (!user) return { primary: "", legacy: "" }
@@ -777,6 +782,18 @@ export default function Images({ roomId }: ImagesProps) {
                 </div>
               )}
 
+              {/* Chat Badge */}
+              {itemCounts[name] > 0 && (
+                <div className="absolute top-2 left-2 z-10">
+                  <div className="bg-red-500/90 text-white text-xs px-2 py-1 rounded-full font-medium backdrop-blur-sm shadow-sm flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    {itemCounts[name] > 99 ? '99+' : itemCounts[name]}
+                  </div>
+                </div>
+              )}
+
               {/* Status Badge */}
               <div className="absolute top-2 right-2">
                 {file.uploaded ? (
@@ -937,24 +954,53 @@ export default function Images({ roomId }: ImagesProps) {
       {/* Image Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedImage(null)}
         >
-          <div className="relative max-w-4xl max-h-full">
-            <img
-              src={selectedImage}
-              alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors duration-200"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div
+            className="bg-gray-800 rounded-xl overflow-hidden max-w-6xl w-full max-h-[90vh] flex flex-col md:flex-row shadow-2xl border border-gray-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Image Section */}
+            <div className="flex-1 bg-black flex items-center justify-center p-4 min-h-[300px] md:min-h-0 relative">
+              <img
+                src={selectedImage}
+                alt="Preview"
+                className="max-w-full max-h-full object-contain"
+              />
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors duration-200 z-10"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Discussion Section */}
+            <div className="w-full md:w-[400px] bg-gray-800 border-t md:border-t-0 md:border-l border-gray-700 flex flex-col h-[400px] md:h-auto">
+              <div className="p-4 border-b border-gray-700 bg-gray-800">
+                <h3 className="text-lg font-semibold text-gray-200">Image Discussion</h3>
+              </div>
+              <div className="flex-1 overflow-hidden p-2">
+                {(() => {
+                  // Find the file name from the URL or state to use as itemId
+                  // selectedImage is a URL. We need the name. 
+                  // We can find the file object where URL matches selectedImage.
+                  const fileEntry = Object.values(files).find(f => (f.url === selectedImage || f.previewUrl === selectedImage));
+                  if (!fileEntry) return <div className="p-4 text-gray-500">Image not found</div>;
+
+                  return (
+                    <ItemDiscussion
+                      itemId={fileEntry.name}
+                      itemType="image"
+                      roomId={roomId}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
           </div>
         </div>
       )}
