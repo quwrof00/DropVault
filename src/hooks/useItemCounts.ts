@@ -56,8 +56,7 @@ export function useItemCounts(roomId: string | null | undefined, itemType?: stri
                 {
                     event: '*', // INSERT and DELETE
                     schema: 'public',
-                    table: 'item_comments',
-                    filter: roomId ? `room_id=eq.${roomId}` : undefined // Filter in callback for null room_id if complex
+                    table: 'item_comments'
                 },
                 (payload) => {
                     if (payload.eventType === 'INSERT') {

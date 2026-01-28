@@ -71,25 +71,24 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
         fetchComments();
 
         // Subscribe to changes
-        // Use a broader filter to avoid issues with special characters in filenames (item_id)
-        const filter = roomId ? `room_id=eq.${roomId}` : `user_id=eq.${user.id}`;
+        // We use a stable channel name per room/user context to avoid special char issues in itemId
+        const channelName = `discussion_${roomId ? `room_${roomId}` : `user_${user.id}`}`;
 
         const channel = supabase
-            .channel(`discussion:${roomId || user.id}:${itemId}`)
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
-                    table: 'item_comments',
-                    filter: filter
+                    table: 'item_comments'
                 },
                 (payload) => {
                     const newComment = payload.new as Comment;
-                    // Strict verification in JS
+
+                    // Client-side Filtering
                     // 1. Check item_id match
                     if (newComment.item_id !== itemId) return;
-
                     // 2. Check item_type match
                     if (newComment.item_type !== itemType) return;
 
@@ -98,7 +97,7 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
                     if (!matchesRoom) return;
 
                     setComments((prev) => {
-                        // Deduplicate based on ID
+                        // Deduplicate based on ID (handle optimistic updates)
                         if (prev.some(c => c.id === newComment.id)) return prev;
                         return [...prev, newComment];
                     });
@@ -111,7 +110,11 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
                     }, 100);
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    // console.log('Subscribed to discussion updates');
+                }
+            });
 
         return () => {
             supabase.removeChannel(channel);
