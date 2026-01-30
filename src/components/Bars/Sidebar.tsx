@@ -33,6 +33,7 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [showCode, setShowCode] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -138,62 +139,83 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
   }, [roomId]);
 
   return (
-    <div className={`bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-full ${className}`}>
+    <div className={`bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-full transition-all duration-300 ${isCollapsed ? 'md:w-20' : 'md:w-64'} ${className}`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-800/50 flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400">
-              <Box size={24} />
+      <div className={`p-4 border-b border-gray-800/50 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+        {!isCollapsed && (
+          <div className="flex flex-col gap-1 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400 flex-shrink-0">
+                <Box size={24} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-gray-100 tracking-tight truncate">
+                  {roomId ? "Room Vault" : "My Vault"}
+                </h2>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-100 tracking-tight">
-                {roomId ? "Room Vault" : "My Vault"}
-              </h2>
-            </div>
-          </div>
 
-          {roomId && roomCode && (
-            <div className="flex items-center gap-2 mt-2 ml-1">
-              <button
-                onClick={() => setShowCode(!showCode)}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-colors"
-                title={showCode ? "Hide Code" : "Show Code"}
-              >
-                {showCode ? <EyeOff size={14} /> : <Eye size={14} />}
-                <span className="font-medium">
-                  {showCode ? roomCode : "****"}
-                </span>
-              </button>
-              {showCode && (
+            {roomId && roomCode && (
+              <div className="flex items-center gap-2 mt-2 ml-1">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(roomCode);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="text-gray-500 hover:text-green-400 transition-colors"
-                  title="Copy Code"
+                  onClick={() => setShowCode(!showCode)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-400 transition-colors"
+                  title={showCode ? "Hide Code" : "Show Code"}
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  {showCode ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <span className="font-medium">
+                    {showCode ? roomCode : "****"}
+                  </span>
                 </button>
-              )}
-            </div>
-          )}
-        </div>
+                {showCode && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(roomCode);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="text-gray-500 hover:text-green-400 transition-colors"
+                    title="Copy Code"
+                  >
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="bg-blue-600/20 p-2 rounded-lg text-blue-400 flex-shrink-0 mb-4 hidden md:block" title={roomId ? "Room Vault" : "My Vault"}>
+            <Box size={24} />
+          </div>
+        )}
+
+        {/* Mobile Close */}
         {onClose && (
-          <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="md:hidden text-gray-400 hover:text-white transition-colors ml-auto">
             <X size={24} />
           </button>
         )}
+
+        {/* Desktop Toggle - Absolute positioned or just part of flow */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={`hidden md:flex text-gray-500 hover:text-white transition-colors p-1 rounded hover:bg-gray-800 ${isCollapsed ? 'absolute top-6' : ''}`}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? <ChevronDown className="transform -rotate-90" size={20} /> : <ChevronDown className="transform rotate-90" size={20} />}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto py-6 px-3 space-y-8 custom-scrollbar">
         {/* Sections */}
-        <nav className="space-y-1">
-          <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Modules
-          </p>
+        <nav className="space-y-2">
+          {!isCollapsed && (
+            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              Modules
+            </p>
+          )}
           {sections.map((item) => (
             <button
               key={item.name}
@@ -204,12 +226,13 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${activeSection === item.name
                 ? "bg-blue-600/10 text-blue-400"
                 : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
-                }`}
+                } ${isCollapsed ? 'justify-center' : ''}`}
+              title={isCollapsed ? item.name : undefined}
             >
               <span className={`transition-transform group-hover:scale-110 ${activeSection === item.name ? "opacity-100" : "opacity-70"}`}>
                 {item.icon}
               </span>
-              <span>{item.name}</span>
+              {!isCollapsed && <span>{item.name}</span>}
             </button>
           ))}
         </nav>
@@ -217,23 +240,39 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
         {/* Members Section */}
         {roomId && (
           <div>
-            <div className="flex items-center justify-between px-3 mb-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Room Members ({roomMembers.length})
-              </h3>
-              <button
-                onClick={() => setIsMembersCollapsed(!isMembersCollapsed)}
-                className="text-gray-500 hover:text-gray-300 transition-colors"
-                title={isMembersCollapsed ? "Expand" : "Collapse"}
-              >
-                <ChevronDown
-                  size={16}
-                  className={`transform transition-transform duration-200 ${isMembersCollapsed ? "-rotate-90" : ""}`}
-                />
-              </button>
-            </div>
+            {!isCollapsed && (
+              <div className="flex items-center justify-between px-3 mb-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Room Members ({roomMembers.length})
+                </h3>
+                <button
+                  onClick={() => setIsMembersCollapsed(!isMembersCollapsed)}
+                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  title={isMembersCollapsed ? "Expand" : "Collapse"}
+                >
+                  <ChevronDown
+                    size={16}
+                    className={`transform transition-transform duration-200 ${isMembersCollapsed ? "-rotate-90" : ""}`}
+                  />
+                </button>
+              </div>
+            )}
 
-            {!isMembersCollapsed && (
+            {/* When collapsed, maybe just show avatars in a stack or list? For now let's just show icons if not empty */}
+            {isCollapsed && roomMembers.length > 0 && (
+              <div className="border-t border-gray-800 pt-4 flex flex-col items-center gap-2">
+                {roomMembers.slice(0, 3).map(m => (
+                  <div key={m.id} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 border border-gray-700/50" title={m.email}>
+                    <User size={16} />
+                  </div>
+                ))}
+                {roomMembers.length > 3 && (
+                  <span className="text-xs text-gray-500">+{roomMembers.length - 3}</span>
+                )}
+              </div>
+            )}
+
+            {!isCollapsed && !isMembersCollapsed && (
               <div className="space-y-1 px-1">
                 {isLoadingMembers ? (
                   <div className="flex items-center space-x-2 px-2 py-2">
@@ -266,10 +305,15 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
       </div>
 
       {/* Footer / User info could go here */}
-      <div className="p-4 border-t border-gray-800/50">
-        <div className="text-xs text-gray-600 text-center">
-          DropVault v1.0
-        </div>
+      <div className={`p-4 border-t border-gray-800/50 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        {!isCollapsed ? (
+          <div className="text-xs text-gray-600 text-center">
+            DropVault v1.0
+          </div>
+        ) : (
+          <div className="text-xs text-gray-600">v1.0</div>
+        )}
+
       </div>
     </div>
   );
