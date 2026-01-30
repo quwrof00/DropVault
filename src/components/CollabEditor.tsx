@@ -129,7 +129,7 @@ function TiptapEditor({
   return (
     <div className="editor-wrapper flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-2 sticky top-0 z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md">
+      <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md">
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().toggleBold().run()}

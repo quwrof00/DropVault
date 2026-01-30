@@ -72,7 +72,7 @@ export default function Editor({ content, onUpdate }: EditorProps) {
   return (
     <div className="editor-wrapper">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 p-2 sticky top-0 z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm">
+      <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm">
         <div className="flex items-center gap-1">
           <button
             onClick={() => editor.chain().focus().toggleBold().run()}
