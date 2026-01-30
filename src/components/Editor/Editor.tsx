@@ -70,7 +70,7 @@ export default function Editor({ content, onUpdate }: EditorProps) {
   }
 
   return (
-    <div className="editor-wrapper">
+    <div className="editor-wrapper flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm">
         <div className="flex items-center gap-1">
@@ -170,7 +170,9 @@ export default function Editor({ content, onUpdate }: EditorProps) {
       </div>
 
       {/* Editor Area */}
-      <EditorContent editor={editor} className="w-full h-full editor-box text-gray-100 " />
+      <div className="flex-1 overflow-auto bg-gray-800/10 p-2">
+        <EditorContent editor={editor} className="w-full h-full editor-box text-gray-100 min-h-full" />
+      </div>
     </div>
   );
 }

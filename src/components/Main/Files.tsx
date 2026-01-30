@@ -740,7 +740,7 @@ export default function Files({ roomId }: FilesProps) {
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
-                        {file.uploaded && (
+                        {roomId && file.uploaded && (
                           <button
                             onClick={() => setExpandedFile(expandedFile === name ? null : name)}
                             className={`relative p-1.5 sm:p-2 rounded-lg transition-all duration-200 ${expandedFile === name ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
@@ -802,7 +802,7 @@ export default function Files({ roomId }: FilesProps) {
                     </div>
 
                     {/* Discussion Area */}
-                    {expandedFile === name && (
+                    {roomId && expandedFile === name && (
                       <div className="mt-4 border-t border-gray-600 pt-3 h-96">
                         <ItemDiscussion itemId={name} itemType="file" roomId={roomId} />
                       </div>

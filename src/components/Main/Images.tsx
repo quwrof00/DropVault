@@ -979,7 +979,7 @@ export default function Images({ roomId }: ImagesProps) {
             </div>
 
             {/* Discussion Section */}
-            <div className="w-full md:w-[400px] bg-gray-800 border-t md:border-t-0 md:border-l border-gray-700 flex flex-col h-[400px] md:h-auto">
+            {roomId && <div className="w-full md:w-[400px] bg-gray-800 border-t md:border-t-0 md:border-l border-gray-700 flex flex-col h-[400px] md:h-auto">
               <div className="p-4 border-b border-gray-700 bg-gray-800">
                 <h3 className="text-lg font-semibold text-gray-200">Image Discussion</h3>
               </div>
@@ -1000,7 +1000,7 @@ export default function Images({ roomId }: ImagesProps) {
                   );
                 })()}
               </div>
-            </div>
+            </div>}
           </div>
         </div>
       )}

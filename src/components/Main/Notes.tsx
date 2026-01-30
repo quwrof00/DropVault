@@ -707,7 +707,7 @@ export default function Notes({ roomId }: NotesProps) {
             )}
 
             {/* Discussion Toggle */}
-            {currentFile && (
+            {roomId && currentFile && (
               <button
                 onClick={() => setIsDiscussionOpen(!isDiscussionOpen)}
                 className={`ml-3 p-2 rounded-lg transition-all duration-200 relative ${isDiscussionOpen ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
@@ -735,7 +735,7 @@ export default function Notes({ roomId }: NotesProps) {
         <div className="flex-1 flex flex-col min-h-0">
           {currentFile ? (
             <div className="flex-1 flex flex-col min-h-0 gap-4">
-              <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-auto">
+              <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-hidden flex flex-col">
                 {roomId ? (
                   <CollabEditor
                     roomId={roomId}
@@ -749,7 +749,7 @@ export default function Notes({ roomId }: NotesProps) {
                 )}
               </div>
 
-              {isDiscussionOpen && (
+              {roomId && isDiscussionOpen && (
                 <div className="h-72 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg overflow-hidden flex flex-col">
                   <ItemDiscussion itemId={currentFile} itemType="note" roomId={roomId} />
                 </div>
