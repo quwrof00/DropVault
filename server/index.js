@@ -3,11 +3,17 @@ import { WebSocketServer } from "ws";
 import { setupWSConnection } from "@y/websocket-server/utils";
 import * as url from "url";
 
+
 // No persistence for now (Windows breaks)
 
 console.log("Starting Yjs server...");
 
 const server = http.createServer((req, res) => {
+    if (req.url === '/api/health') {
+        res.writeHead(200);
+        res.end(JSON.stringify({ status: "ok", timeStamp: new Date().toISOString(), message: "Yjs server running" }));
+        return;
+    }
     res.writeHead(200);
     res.end("Yjs server running");
 });

@@ -10,6 +10,7 @@ import { Dialog, type DialogProps } from "../UI/Dialog";
 import ItemDiscussion from "./ItemDiscussion";
 import { useItemCounts } from "../../hooks/useItemCounts";
 
+
 interface User {
   id: string;
 }
@@ -45,6 +46,7 @@ export default function Notes({ roomId }: NotesProps) {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Real-time comment counts
   const itemCounts = useItemCounts(roomId, 'note');
@@ -209,7 +211,7 @@ export default function Notes({ roomId }: NotesProps) {
             setDecryptProgress(Math.round(progress * 100));
           }
 
-          // payload is an array of { title, content }
+          // payload is an array of {title, content}
           const batchResults: Record<string, string> = {};
           payload.forEach((item: { title: string; content: string }) => {
             batchResults[item.title] = item.content;
@@ -337,6 +339,31 @@ export default function Notes({ roomId }: NotesProps) {
       }
     };
   }, [user, roomId, currentFile, text, saveNote]);
+
+  // Handle Keyboard shortcuts (Esc, F)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to exit
+      if (isFullScreen && e.key === 'Escape') {
+        setIsFullScreen(false);
+        return;
+      }
+
+      // 'f' to toggle full screen (if not typing)
+      if (e.key.toLowerCase() === 'f') {
+        const target = e.target as HTMLElement;
+        const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+        if (!isTyping) {
+          e.preventDefault();
+          setIsFullScreen(prev => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullScreen]);
 
   const handleFileSelect = useCallback((file: string) => {
     if (currentFile && text !== lastSavedTextRef.current) {
@@ -706,11 +733,13 @@ export default function Notes({ roomId }: NotesProps) {
               </div>
             )}
 
+
+
             {/* Discussion Toggle */}
             {roomId && currentFile && (
               <button
                 onClick={() => setIsDiscussionOpen(!isDiscussionOpen)}
-                className={`ml-3 p-2 rounded-lg transition-all duration-200 relative ${isDiscussionOpen ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
+                className={`p-2 rounded-lg transition-all duration-200 relative ${isDiscussionOpen ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 hover:text-blue-400 hover:bg-blue-400/10'}`}
                 title={isDiscussionOpen ? "Close Discussion" : "Open Discussion"}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -725,17 +754,52 @@ export default function Notes({ roomId }: NotesProps) {
             )}
           </div>
 
-          {roomId && (
-            <div className="bg-blue-600/20 text-blue-300 px-3 py-1 rounded-full text-sm font-medium border border-blue-600/30">
-              Room Notes
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Full Screen Toggle */}
+            {currentFile && (
+              <button
+                onClick={() => setIsFullScreen(true)}
+                className="p-2 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 transition-all duration-200"
+                title="Full Screen"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4 M20 8V4h-4 M4 16v4h4 M20 16v4h-4" />
+                </svg>
+              </button>
+            )}
+
+            {roomId && (
+              <div className="bg-blue-600/20 text-blue-300 px-3 py-1 rounded-full text-sm font-medium border border-blue-600/30">
+                Room Notes
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">
           {currentFile ? (
             <div className="flex-1 flex flex-col min-h-0 gap-4">
-              <div className="flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4 overflow-hidden flex flex-col">
+              <div
+                className={`
+                  flex flex-col overflow-hidden transition-all duration-300
+                  ${isFullScreen
+                    ? "fixed inset-0 z-[100] bg-gray-900 w-full h-full p-0 border-none rounded-none"
+                    : "flex-1 bg-gray-800/50 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-lg p-3 sm:p-4"
+                  }
+                `}
+              >
+                {isFullScreen && (
+                  <button
+                    onClick={() => setIsFullScreen(false)}
+                    className="absolute top-2 right-2 z-[110] p-2 bg-gray-800 text-white rounded-lg border border-gray-600 shadow-xl hover:bg-gray-700 transition-colors"
+                    title="Exit Full Screen"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+
                 {roomId ? (
                   <CollabEditor
                     roomId={roomId}
