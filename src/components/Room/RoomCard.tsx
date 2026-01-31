@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Pen } from "lucide-react";
 
 type Room = {
     id: string;
@@ -9,9 +10,11 @@ type Room = {
 interface RoomCardProps {
     room: Room;
     onLeave: (roomId: string, roomName: string) => void;
+    onRename: (roomId: string) => void;
+    isCreator: boolean;
 }
 
-export function RoomCard({ room, onLeave }: RoomCardProps) {
+export function RoomCard({ room, onLeave, onRename, isCreator }: RoomCardProps) {
     const navigate = useNavigate();
 
     return (
@@ -25,15 +28,29 @@ export function RoomCard({ room, onLeave }: RoomCardProps) {
                 >
                     {room.name}
                 </h2>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onLeave(room.id, room.name);
-                    }}
-                    className="text-sm text-gray-400 hover:text-red-400 px-2 py-1 rounded-md hover:bg-gray-700 transition-colors duration-200"
-                >
-                    Leave
-                </button>
+                <div className="flex gap-2">
+                    {isCreator && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onRename(room.id);
+                            }}
+
+                        >
+                            <Pen className="text-gray-400" />
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLeave(room.id, room.name);
+                        }}
+                        className="text-sm text-gray-400 hover:text-red-400 px-2 py-1 rounded-md hover:bg-gray-700 transition-colors duration-200"
+                    >
+                        Leave
+                    </button>
+                </div>
+
             </div>
         </div>
     );

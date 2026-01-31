@@ -10,7 +10,7 @@ import { Dialog, type DialogProps } from "../components/UI/Dialog";
 
 export default function RoomsPage() {
   const user = useAuthUser();
-  const { rooms, loading, error, success, createRoom, joinRoom, leaveRoom, setError, setSuccess } = useRooms();
+  const { rooms, loading, error, success, createRoom, joinRoom, leaveRoom, renameRoom, setError, setSuccess } = useRooms();
 
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -25,6 +25,13 @@ export default function RoomsPage() {
     }
   }, [error, setError]);
 
+  useEffect(() => {
+    if (success) {
+      const timeout = setTimeout(() => setSuccess(null), 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [success, setSuccess]);
+
   // Dialog helpers
   const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
 
@@ -34,6 +41,31 @@ export default function RoomsPage() {
     const ok = await createRoom(data);
     setIsCreatingRoom(false);
     if (ok) setCreateRoomOpen(false);
+  }
+
+  async function handleRenameRoom(roomId: string) {
+    if (!user) return;
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    const isCreator = room.created_by === user.id;
+    if (!isCreator) return;
+    setDialog({
+      isOpen: true,
+      title: "Rename Room",
+      message: "Enter new name:",
+      type: "input",
+      placeholder: `Name`,
+      confirmText: "Rename",
+      onConfirm: async (name) => {
+        if (name && name.length > 0) {
+          closeDialog();
+          const ok = await renameRoom(roomId, name!);
+          if (ok) setSuccess(`Room name updated to ${name}`)
+        } else {
+          setError("Name cannot be empty.")
+        }
+      }
+    })
   }
 
   function handleJoinRoom() {
@@ -182,7 +214,9 @@ export default function RoomsPage() {
               <RoomCard
                 key={room.id}
                 room={room}
+                onRename={handleRenameRoom}
                 onLeave={handleLeaveRoom}
+                isCreator={user?.id === room.created_by}
               />
             ))}
           </div>

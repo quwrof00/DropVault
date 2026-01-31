@@ -161,5 +161,28 @@ export function useRooms() {
         }
     }
 
-    return { rooms, loading, error, success, createRoom, joinRoom, leaveRoom, setError, setSuccess };
+    const renameRoom = async (roomId: string, newName: string) => {
+        if (!user) return;
+
+        try {
+            const { data: roomData, error: fetchError } = await supabase.from("rooms").select("id").eq("id", roomId).eq("created_by", user.id).single();
+            if (fetchError || !roomData) {
+                throw new Error("You do not have access to rename the room.");
+            }
+
+            const { error: updateError } = await supabase.from("rooms").update({ name: newName }).eq("id", roomId);
+            if (updateError) throw updateError;
+
+            // Immediate local update
+            setRooms(prev => prev.map(r => r.id === roomId ? { ...r, name: newName } : r));
+
+            // Sync with backend
+            await fetchRooms();
+            return true;
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    return { rooms, loading, error, success, createRoom, joinRoom, leaveRoom, renameRoom, setError, setSuccess };
 }
