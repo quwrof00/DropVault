@@ -1,27 +1,29 @@
 
+import React from 'react';
 
 export type DashboardCardProps = {
     title: string;
     count: number;
-    icon: string;
-    color: string;
+    icon: React.ReactNode;
     onClick: () => void;
 };
 
-export function DashboardCard({ title, count, icon, color, onClick }: DashboardCardProps) {
+export function DashboardCard({ title, count, icon, onClick }: DashboardCardProps) {
     return (
         <div
-            className={`bg-gradient-to-br ${color} rounded-xl p-6 shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]`}
+            className="bg-gray-800 border border-gray-700 rounded-xl p-6 cursor-pointer hover:bg-gray-700/80 transition-all duration-200 shadow-md flex items-center justify-between"
             onClick={onClick}
         >
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-gray-200 text-sm font-medium">{title}</p>
-                    <p className="text-3xl font-bold mt-2">{count}</p>
+            <div>
+                <p className="text-gray-400 text-sm font-medium">{title}</p>
+                <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-3xl font-bold text-white tracking-tight">{count}</p>
                 </div>
-                <span className="text-4xl">{icon}</span>
+                <p className="text-gray-500 text-xs mt-3">View all {title.toLowerCase()}</p>
             </div>
-            <p className="text-gray-200 text-xs mt-4 opacity-80">View all {title.toLowerCase()}</p>
+            <div className="p-3 bg-gray-900/50 rounded-lg text-gray-300">
+                {icon}
+            </div>
         </div>
     );
 }

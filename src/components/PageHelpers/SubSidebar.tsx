@@ -128,6 +128,27 @@ const SubSidebar: React.FC<SidebarProps> = ({
     });
   };
 
+  // Auto-expand folders when currentItem changes
+  React.useEffect(() => {
+    if (!currentItem) return;
+
+    if (currentItem.includes('/')) {
+      const parts = currentItem.split('/');
+      if (parts.length > 1) {
+        setViewMode('folders');
+        setExpandedFolders(prev => {
+          const next = new Set(prev);
+          let cumulativePath = '';
+          for (let i = 0; i < parts.length - 1; i++) {
+            cumulativePath = cumulativePath ? `${cumulativePath}/${parts[i]}` : parts[i];
+            next.add(cumulativePath);
+          }
+          return next;
+        });
+      }
+    }
+  }, [currentItem]);
+
   const renderTreeNode = (node: TreeNode, depth: number = 0) => {
     const isExpanded = expandedFolders.has(node.fullPath);
     const isSelected = node.fullPath === currentItem;

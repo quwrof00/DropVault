@@ -3,6 +3,7 @@ import { useAuthUser } from "../hooks/useAuthUser";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardCard } from "../components/Dashboard/DashboardCard";
+import { Image, Files, Notebook, Code, Clock } from "lucide-react";
 
 export default function Dashboard() {
   const user = useAuthUser();
@@ -68,25 +69,9 @@ export default function Dashboard() {
   if (counts.loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-400 border-r-transparent"></div>
-          <p className="mt-4 text-gray-300">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (counts.error) {
-    return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        <div className="text-center text-red-400">
-          <p>Error loading dashboard data</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700"
-          >
-            Retry
-          </button>
+        <div className="flex items-center space-x-3 text-gray-300">
+          <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+          <span className="font-medium">Loading dashboard...</span>
         </div>
       </div>
     );
@@ -95,50 +80,63 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-300">
-          Dashboard <span className="text-base md:text-lg font-light text-gray-400 align-middle">
-            | {user?.email}
-          </span>
-        </h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-gray-800">
+          <h1 className="text-3xl font-bold">
+            Dashboard <span className="text-gray-500 font-normal ml-2">|</span> <span className="text-gray-400 text-lg font-normal ml-2">{user?.email}</span>
+          </h1>
+          <div className="flex gap-4 mt-4 md:mt-0">
+            <button 
+              onClick={() => navigate('/main')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm font-medium"
+            >
+              Go to Workspace
+            </button>
+            <button 
+              onClick={() => supabase.auth.signOut()}
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition text-sm font-medium"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <DashboardCard
             title="Images"
             count={counts.images}
-            icon="🖼️"
-            color="from-purple-500 to-indigo-500"
+            icon={<Image size={24} />}
             onClick={() => navigate("/main")}
           />
 
           <DashboardCard
             title="Files"
             count={counts.files}
-            icon="📁"
-            color="from-green-500 to-teal-500"
+            icon={<Files size={24} />}
             onClick={() => navigate("/main")}
           />
 
           <DashboardCard
             title="Notes"
             count={counts.notes}
-            icon="📝"
-            color="from-yellow-500 to-amber-500"
+            icon={<Notebook size={24} />}
             onClick={() => navigate("/main")}
           />
 
           <DashboardCard
             title="Code Snippets"
             count={counts.codes}
-            icon="💻"
-            color="from-red-500 to-pink-500"
+            icon={<Code size={24} />}
             onClick={() => navigate("/main")}
           />
         </div>
 
         {/* Recent Activity Section */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
-          <h2 className="text-2xl font-semibold mb-6 text-gray-200">Recent Activity</h2>
-          <div className="text-gray-400 text-center py-8">
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-6">
+            <Clock className="text-gray-400" size={20} />
+            <h2 className="text-xl font-semibold">Recent Activity</h2>
+          </div>
+          <div className="text-gray-500 text-center py-12 border-2 border-dashed border-gray-700 rounded-lg">
             <p>Your recent activity will appear here</p>
           </div>
         </div>

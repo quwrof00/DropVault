@@ -4,10 +4,11 @@ import type React from "react"
 import { supabase } from "../../lib/supabase-client"
 import { useAuthUser } from "../../hooks/useAuthUser"
 import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+// import { useNavigate } from "react-router-dom"
 import { Dialog, type DialogProps } from "../UI/Dialog"
 import ItemDiscussion from "./ItemDiscussion"
 import { useItemCounts } from "../../hooks/useItemCounts"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 type FileEntry = {
   name: string
@@ -50,7 +51,7 @@ const formatFileSize = (bytes: number) => {
 
 export default function Images({ roomId }: ImagesProps) {
   const user = useAuthUser()
-  const navigate = useNavigate()
+  // const navigate = useNavigate() // Unused
 
   const [files, setFiles] = useState<{ [key: string]: FileEntry }>({})
   const [searchTerm, setSearchTerm] = useState("")
@@ -92,84 +93,93 @@ export default function Images({ roomId }: ImagesProps) {
     });
   };
 
-
-
   const isSelected = (name: string) => selectedFiles.has(name);
 
-  // Fetch files from Supabase Storage
-  useEffect(() => {
-    if (user === undefined) return
-    if (!user) {
-      navigate("/login")
-      return
-    }
+  const queryClient = useQueryClient()
 
-    let cancelled = false
-      ; (async () => {
-        setIsLoading(true)
-        try {
-          const mergedFiles: { [key: string]: FileEntry } = {}
+  const { data: storageFiles, isLoading: isQueryLoading, error: queryError } = useQuery({
+    queryKey: ["images", prefixes.primary, prefixes.legacy],
+    queryFn: async () => {
+      const mergedFiles: { [key: string]: FileEntry } = {}
 
-          // List primary prefix first
-          const { data: primaryList, error: primaryErr } = await supabase.storage.from(BUCKET).list(prefixes.primary)
-          if (primaryErr && primaryErr.message !== 'The resource was not found') {
-            console.error("Failed to list primary prefix", primaryErr)
-          } else if (primaryList) {
-            primaryList.forEach((file) => {
-              const fileName = file.name
-              if (isImageFile(fileName)) {
-                const publicUrl = makePublicUrl(prefixes.primary, fileName)
-                mergedFiles[fileName] = {
-                  name: fileName,
-                  blob: new Blob(),
-                  uploaded: true,
-                  lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
-                  progress: 100,
-                  url: publicUrl,
-                  previewUrl: publicUrl,
-                  pathPrefix: prefixes.primary,
-                }
-              }
-            })
-          }
-
-          // Optionally list legacy and merge (skip duplicates, prefer primary)
-          if (INCLUDE_LEGACY_LISTING && prefixes.legacy && prefixes.legacy !== prefixes.primary) {
-            const { data: legacyList, error: legacyErr } = await supabase.storage.from(BUCKET).list(prefixes.legacy)
-            if (legacyErr && legacyErr.message !== 'The resource was not found') {
-              console.error("Failed to list legacy prefix", legacyErr)
-            } else if (legacyList) {
-              legacyList.forEach((file) => {
-                const fileName = file.name
-                if (isImageFile(fileName) && !mergedFiles[fileName]) {
-                  const publicUrl = makePublicUrl(prefixes.legacy, fileName)
-                  mergedFiles[fileName] = {
-                    name: fileName,
-                    blob: new Blob(),
-                    uploaded: true,
-                    lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
-                    progress: 100,
-                    url: publicUrl,
-                    previewUrl: publicUrl,
-                    pathPrefix: prefixes.legacy,
-                  }
-                }
-              })
+      // List primary prefix first
+      const { data: primaryList, error: primaryErr } = await supabase.storage.from(BUCKET).list(prefixes.primary)
+      if (primaryErr && primaryErr.message !== 'The resource was not found') {
+        console.error("Failed to list primary prefix", primaryErr)
+      } else if (primaryList) {
+        primaryList.forEach((file) => {
+          const fileName = file.name
+          if (isImageFile(fileName)) {
+            const publicUrl = makePublicUrl(prefixes.primary, fileName)
+            mergedFiles[fileName] = {
+              name: fileName,
+              blob: new Blob(),
+              uploaded: true,
+              lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
+              progress: 100,
+              url: publicUrl,
+              previewUrl: publicUrl,
+              pathPrefix: prefixes.primary,
             }
           }
+        })
+      }
 
-          if (!cancelled) {
-            setFiles(mergedFiles)
-          }
-        } finally {
-          if (!cancelled) setIsLoading(false)
+      // Optionally list legacy and merge (skip duplicates, prefer primary)
+      if (INCLUDE_LEGACY_LISTING && prefixes.legacy && prefixes.legacy !== prefixes.primary) {
+        const { data: legacyList, error: legacyErr } = await supabase.storage.from(BUCKET).list(prefixes.legacy)
+        if (legacyErr && legacyErr.message !== 'The resource was not found') {
+          console.error("Failed to list legacy prefix", legacyErr)
+        } else if (legacyList) {
+          legacyList.forEach((file) => {
+            const fileName = file.name
+            if (isImageFile(fileName) && !mergedFiles[fileName]) {
+              const publicUrl = makePublicUrl(prefixes.legacy, fileName)
+              mergedFiles[fileName] = {
+                name: fileName,
+                blob: new Blob(),
+                uploaded: true,
+                lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
+                progress: 100,
+                url: publicUrl,
+                previewUrl: publicUrl,
+                pathPrefix: prefixes.legacy,
+              }
+            }
+          })
         }
-      })()
+      }
 
-    return () => {
-      cancelled = true
+      return mergedFiles
+    },
+    enabled: !!user && !!prefixes.primary,
+  })
+
+  useEffect(() => {
+    if (storageFiles) {
+      setFiles(prev => {
+        // Only update files that are already "uploaded"
+        // We want to keep currently uploading files in the state
+        const next = { ...prev }
+        Object.keys(next).forEach(key => {
+          if (next[key].uploaded) {
+            delete next[key]
+          }
+        })
+        return { ...next, ...storageFiles }
+      })
     }
-  }, [user, navigate, prefixes])
+  }, [storageFiles])
+
+  useEffect(() => {
+    setIsLoading(isQueryLoading)
+  }, [isQueryLoading])
+
+  useEffect(() => {
+    if (queryError) {
+      console.error("Failed to fetch images", queryError)
+    }
+  }, [queryError])
 
   // Revoke any blob: preview URLs on unmount or when files change
   useEffect(() => {
@@ -213,6 +223,8 @@ export default function Images({ roomId }: ImagesProps) {
       if (!uploadError) {
         const pathPrefix = roomId ? `room-${roomId}` : `${user.id}`
         const publicUrl = makePublicUrl(pathPrefix, fileEntry.name)
+
+        queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
 
         setFiles((prev) => ({
           ...prev,
@@ -433,6 +445,8 @@ export default function Images({ roomId }: ImagesProps) {
           return;
         }
 
+        queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
+
         setFiles((prev) => {
           const updated = { ...prev };
           if (updated[fileName]?.previewUrl?.startsWith("blob:")) {
@@ -474,6 +488,8 @@ export default function Images({ roomId }: ImagesProps) {
           closeDialog();
           return;
         }
+
+        queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
 
         // 2️⃣ Update UI immediately
         setFiles(prev => {
@@ -556,6 +572,8 @@ export default function Images({ roomId }: ImagesProps) {
         alert(`Failed to delete old file "${oldName}": ${deleteError.message}`)
         return
       }
+      
+      queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
 
       const publicUrl = makePublicUrl(prefix, newName)
       setFiles((prev) => {

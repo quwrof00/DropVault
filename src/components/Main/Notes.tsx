@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase-client";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Editor from "../Editor/Editor";
 import CollabEditor from "../CollabEditor";
 import { encrypt } from "../../lib/crypto-helper";
@@ -29,7 +30,7 @@ interface NoteRow {
 
 export default function Notes({ roomId }: NotesProps) {
   const user = useAuthUser() as User | null | undefined;
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const [files, setFiles] = useState<{ [key: string]: string }>({});
   const [currentFile, setCurrentFile] = useState<string>("");
@@ -56,7 +57,8 @@ export default function Notes({ roomId }: NotesProps) {
   const lastSavedTextRef = useRef<string>("");
   const isInitialLoadRef = useRef(true);
 
-
+  // Worker ref
+  const decryptWorkerRef = useRef<Worker | null>(null);
 
   // Debounced save function for notes (personal or room)
   const saveNote = useCallback(async (fileName: string, content: string, forceImmediate = false) => {
@@ -103,6 +105,9 @@ export default function Notes({ roomId }: NotesProps) {
 
       if (error) throw error;
 
+      // Invalidate query to keep cache fresh
+      queryClient.invalidateQueries({ queryKey: ["notes", roomId ?? user.id] });
+
       lastSavedTextRef.current = content;
       setFiles(prev => ({ ...prev, [fileName]: content }));
       console.log(`Successfully saved: ${fileName}`);
@@ -122,39 +127,13 @@ export default function Notes({ roomId }: NotesProps) {
     }
   }, [user, roomId]);
 
-  // Worker ref
-  const decryptWorkerRef = useRef<Worker | null>(null);
+  const queryClient = useQueryClient();
 
-  // Fetch notes (personal or room notes) - Worker Implementation
-  const fetchNotes = useCallback(async () => {
-    if (user === undefined) return;
-
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    setIsLoading(true);
-    setDecryptProgress(0);
-    setError(null);
-
-    // Terminate existing worker if any
-    if (decryptWorkerRef.current) {
-      decryptWorkerRef.current.terminate();
-    }
-
-    // Initialize new worker
-    const worker = new Worker(new URL('../../workers/decryptWorker.ts', import.meta.url), {
-      type: 'module'
-    });
-    decryptWorkerRef.current = worker;
-
-    try {
-      const secretKey = roomId ?? user.id;
-
-      // ---------------------------------------------------------
-      // 1. Fetch Supabase notes ordered by updated_at DESC
-      // ---------------------------------------------------------
+  // 1. Define the query for fetching encrypted notes
+  const { data: supabaseNotes, isLoading: isQueryLoading, error: queryError } = useQuery({
+    queryKey: ["notes", roomId ?? user?.id],
+    queryFn: async () => {
+      if (!user) return null;
       let query = supabase
         .from("notes")
         .select("title, ciphertext, iv, salt, updated_at");
@@ -167,109 +146,114 @@ export default function Notes({ roomId }: NotesProps) {
 
       query = query.order("updated_at", { ascending: false });
 
-      const {
-        data: supabaseData,
-        error,
-      }: { data: NoteRow[] | null; error: unknown } = await query;
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as NoteRow[];
+    },
+    enabled: !!user,
+  });
 
-      if (error) {
-        console.error("Failed to fetch Supabase notes", error);
-        setError("Failed to load notes. Please try again.");
-        setFiles({});
-        setIsLoading(false);
-        return;
-      }
-
-      if (!supabaseData || supabaseData.length === 0) {
+  // 2. Handle decryption when query data is available
+  useEffect(() => {
+    if (!supabaseNotes || supabaseNotes.length === 0) {
+      if (!isQueryLoading) {
         setFiles({});
         setIsLoading(false);
         setCurrentFile("");
         setText("");
         lastSavedTextRef.current = "";
-        return;
       }
-
-      // Notes fetched, now start "Decrypting" phase
-      // We set isLoading to false so the UI can render immediately (empty list first)
-      // And set isDecrypting to true to show progress
-      setIsLoading(false);
-      setIsDecrypting(true);
-
-      // ---------------------------------------------------------
-      // 2. Offload Decryption to Worker
-      // ---------------------------------------------------------
-
-      // Temporary storage to help determine "first file"
-      let firstDecrypted = false;
-
-      worker.onmessage = (e) => {
-        const { type, payload, progress } = e.data;
-
-        if (type === 'batch') {
-          // Update progress
-          if (typeof progress === 'number') {
-            setDecryptProgress(Math.round(progress * 100));
-          }
-
-          // payload is an array of {title, content}
-          const batchResults: Record<string, string> = {};
-          payload.forEach((item: { title: string; content: string }) => {
-            batchResults[item.title] = item.content;
-          });
-
-          setFiles(prev => ({
-            ...prev,
-            ...batchResults
-          }));
-
-          // Logic to open the first file automatically (if not already selected)
-          // We iterate through the batch to see if we found a candidate
-          if (!firstDecrypted && !currentFile) {
-            const candidate = payload.find((p: { title: string }) => !p.title.endsWith("/.placeholder"));
-            if (candidate) {
-              firstDecrypted = true;
-              setCurrentFile(candidate.title);
-              setText(candidate.content);
-              lastSavedTextRef.current = candidate.content;
-            }
-          }
-
-          // If the currently open file is in this batch, refresh it (e.g. initial load overwrite)
-          if (currentFile && batchResults[currentFile] !== undefined) {
-            setText(batchResults[currentFile]);
-            lastSavedTextRef.current = batchResults[currentFile];
-          }
-        }
-        else if (type === 'done') {
-          setIsDecrypting(false);
-          setDecryptProgress(100);
-          isInitialLoadRef.current = false;
-        }
-      };
-
-      worker.onerror = (err) => {
-        console.error("Worker error:", err);
-        setError("Error decrypting notes.");
-        setIsDecrypting(false);
-        setIsLoading(false);
-      };
-
-      // Feed chunks to worker
-      worker.postMessage({ notes: supabaseData, secretKey });
-
-    } catch (err) {
-      console.error("Error loading notes:", err);
-      if (isMountedRef.current) {
-        setError("An unexpected error occurred while loading notes.");
-        setIsLoading(false);
-        setIsDecrypting(false); // Ensure decrypting is false on error
-      }
+      return;
     }
-  }, [user, navigate, roomId, currentFile]);
 
+    const secretKey = roomId ?? user?.id;
+    if (!secretKey) return;
+
+    setIsLoading(false);
+    setIsDecrypting(true);
+    setDecryptProgress(0);
+
+    // Terminate existing worker if any
+    if (decryptWorkerRef.current) {
+      decryptWorkerRef.current.terminate();
+    }
+
+    // Initialize new worker
+    const worker = new Worker(new URL('../../workers/decryptWorker.ts', import.meta.url), {
+      type: 'module'
+    });
+    decryptWorkerRef.current = worker;
+
+    let firstDecrypted = false;
+
+    worker.onmessage = (e) => {
+      const { type, payload, progress } = e.data;
+
+      if (type === 'batch') {
+        if (typeof progress === 'number') {
+          setDecryptProgress(Math.round(progress * 100));
+        }
+
+        const batchResults: Record<string, string> = {};
+        payload.forEach((item: { title: string; content: string }) => {
+          batchResults[item.title] = item.content;
+        });
+
+        setFiles(prev => ({
+          ...prev,
+          ...batchResults
+        }));
+
+        if (!firstDecrypted && !currentFile) {
+          const candidate = payload.find((p: { title: string }) => !p.title.endsWith("/.placeholder"));
+          if (candidate) {
+            firstDecrypted = true;
+            setCurrentFile(candidate.title);
+            setText(candidate.content);
+            lastSavedTextRef.current = candidate.content;
+          }
+        }
+
+        if (currentFile && batchResults[currentFile] !== undefined) {
+          setText(batchResults[currentFile]);
+          lastSavedTextRef.current = batchResults[currentFile];
+        }
+      } else if (type === 'done') {
+        setIsDecrypting(false);
+        setDecryptProgress(100);
+        isInitialLoadRef.current = false;
+      }
+    };
+
+    worker.onerror = (err) => {
+      console.error("Worker error:", err);
+      setError("Error decrypting notes.");
+      setIsDecrypting(false);
+    };
+
+    worker.postMessage({ notes: supabaseNotes, secretKey });
+
+    return () => {
+      worker.terminate();
+    };
+  }, [supabaseNotes, user?.id, roomId, isQueryLoading]);
+
+  // Handle query errors
   useEffect(() => {
-    fetchNotes();
-  }, [user, roomId, navigate]);
+    if (queryError) {
+      console.error("Failed to fetch Supabase notes", queryError);
+      setError("Failed to load notes. Please try again.");
+      setFiles({});
+      setIsLoading(false);
+    }
+  }, [queryError]);
+
+  // Sync isLoading with query state (only for initial load)
+  useEffect(() => {
+    if (isQueryLoading) {
+      setIsLoading(true);
+    }
+  }, [isQueryLoading]);
 
   // Note autosave
   useEffect(() => {
@@ -478,6 +462,9 @@ export default function Notes({ roomId }: NotesProps) {
           });
 
           if (error) throw error;
+          
+          queryClient.invalidateQueries({ queryKey: ["notes", roomId ?? user.id] });
+
           setFiles((prev) => ({ ...prev, [trimmedName]: "" }));
           setCurrentFile(trimmedName);
           setText("");
@@ -535,6 +522,8 @@ export default function Notes({ roomId }: NotesProps) {
 
             const { error } = await deleteQuery;
             if (error) throw error;
+
+            queryClient.invalidateQueries({ queryKey: ["notes", roomId ?? user.id] });
 
             setFiles(prev => {
               const updated = { ...prev };
@@ -621,6 +610,8 @@ export default function Notes({ roomId }: NotesProps) {
             else updateQuery.is("room_id", null).eq("user_id", user.id);
             const { error } = await updateQuery;
             if (error) throw error;
+
+            queryClient.invalidateQueries({ queryKey: ["notes", roomId ?? user.id] });
 
             setFiles(prev => {
               const updated = { ...prev };

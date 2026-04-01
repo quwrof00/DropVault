@@ -1,7 +1,7 @@
-
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase-client';
 import { useAuthUser } from '../../hooks/useAuthUser';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Comment {
     id: string;
@@ -22,22 +22,15 @@ interface ItemDiscussionProps {
 
 export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscussionProps) {
     const user = useAuthUser();
-    const [comments, setComments] = useState<Comment[]>([]);
+    const queryClient = useQueryClient();
     const [newComment, setNewComment] = useState('');
-    const [loading, setLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // If we are not in a room, maybe we don't show discussion? 
-    // Or we allow personal notes discussion (notes to self).
-    // The user specifically asked for "in rooms", so we can assume roomId is present or handle both.
+    const queryKey = ['comments', itemType, itemId, roomId ?? 'personal'];
 
-    useEffect(() => {
-        if (!itemId || !user) return;
-
-        // Load initial comments
-        const fetchComments = async () => {
-            setLoading(true);
-
+    const { data: comments = [], isLoading: loading } = useQuery({
+        queryKey,
+        queryFn: async () => {
             let query = supabase
                 .from('item_comments')
                 .select('*')
@@ -48,30 +41,19 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
             if (roomId) {
                 query = query.eq('room_id', roomId);
             } else {
-                // For personal items, we check where room_id is null and user_id matches owner?
-                // Actually, let's just stick to "room_id" matching. 
-                // If it's a personal item, roomId is undefined/null.
-                // But we need to make sure we don't mix personal comments.
-                // For now, let's assume we filter by room_id if provided, 
-                // or filter by user_id if it's personal? 
-                // Simplest: `is('room_id', roomId ? roomId : null)`
-                query = query.is('room_id', roomId ? roomId : null);
+                query = query.is('room_id', null);
             }
 
             const { data, error } = await query;
+            if (error) throw error;
+            return data as Comment[];
+        },
+        enabled: !!itemId && !!user,
+    });
 
-            if (error) {
-                console.error('Error fetching comments:', error);
-            } else {
-                setComments(data || []);
-            }
-            setLoading(false);
-        };
+    useEffect(() => {
+        if (!itemId || !user) return;
 
-        fetchComments();
-
-        // Subscribe to changes
-        // We use a stable channel name per room/user context to avoid special char issues in itemId
         const channelName = `discussion_${roomId ? `room_${roomId}` : `user_${user.id}`}`;
 
         const channel = supabase
@@ -86,23 +68,17 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
                 (payload) => {
                     const newComment = payload.new as Comment;
 
-                    // Client-side Filtering
-                    // 1. Check item_id match
                     if (newComment.item_id !== itemId) return;
-                    // 2. Check item_type match
                     if (newComment.item_type !== itemType) return;
-
-                    // 3. Verify room scope matches
                     const matchesRoom = roomId ? newComment.room_id === roomId : newComment.room_id === null;
                     if (!matchesRoom) return;
 
-                    setComments((prev) => {
-                        // Deduplicate based on ID (handle optimistic updates)
+                    queryClient.setQueryData(queryKey, (prev: Comment[] | undefined) => {
+                        if (!prev) return [newComment];
                         if (prev.some(c => c.id === newComment.id)) return prev;
                         return [...prev, newComment];
                     });
 
-                    // Scroll to bottom after state update
                     setTimeout(() => {
                         if (scrollRef.current) {
                             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -110,18 +86,13 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
                     }, 100);
                 }
             )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    // console.log('Subscribed to discussion updates');
-                }
-            });
+            .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [itemId, itemType, roomId, user]);
+    }, [itemId, itemType, roomId, user, queryKey, queryClient]);
 
-    // Auto-scroll to bottom
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -133,9 +104,8 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
         if (!newComment.trim() || !user) return;
 
         const content = newComment.trim();
-        setNewComment(''); // Optimistic clear
+        setNewComment('');
 
-        // Post to Supabase
         const { data, error } = await supabase
             .from('item_comments')
             .insert({
@@ -144,7 +114,7 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
                 room_id: roomId || null,
                 user_id: user.id,
                 content: content,
-                user_email: user.email // Store email for display if possible, or we join on fetch
+                user_email: user.email
             })
             .select()
             .single();
@@ -152,11 +122,10 @@ export default function ItemDiscussion({ itemId, itemType, roomId }: ItemDiscuss
         if (error) {
             console.error('Error posting comment:', error);
             alert('Failed to post comment');
-            setNewComment(content); // Revert
+            setNewComment(content);
         } else if (data) {
-            // Immediate update for sender (confirms data is saved)
-            setComments((prev) => {
-                // Prevent duplicate if subscription fired already
+            queryClient.setQueryData(queryKey, (prev: Comment[] | undefined) => {
+                if (!prev) return [data];
                 if (prev.some(c => c.id === data.id)) return prev;
                 return [...prev, data];
             });
