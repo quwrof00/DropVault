@@ -45,7 +45,7 @@
 }
 
 button[aria-label="Copy to clipboard"] {
-  transition: all 0.2s ease;
+
 }
 
 button[aria-label="Copy to clipboard"]:hover {

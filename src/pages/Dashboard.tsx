@@ -3,11 +3,42 @@ import { useAuthUser } from "../hooks/useAuthUser";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardCard } from "../components/Dashboard/DashboardCard";
-import { Image, Files, Notebook, Code, Clock } from "lucide-react";
+import { Image, Files, Notebook, Code, Clock, Trash2 } from "lucide-react";
+
+interface Activity {
+  id: number;
+  action: string;
+  target_name: string;
+  created_at: string;
+}
+
+const getActionText = (action: string) => {
+  switch (action) {
+    case 'upload_image': return 'Uploaded image';
+    case 'delete_image': return 'Deleted image';
+    case 'upload_file': return 'Uploaded file';
+    case 'delete_file': return 'Deleted file';
+    case 'upload': return 'Uploaded file'; // Legacy
+    case 'delete': return 'Deleted file'; // Legacy
+    case 'create': return 'Created file'; // Legacy
+    case 'created_room': return 'Created room';
+    case 'joined_room': return 'Joined room';
+    case 'deleted_room': return 'Deleted room';
+    case 'left_room': return 'Left room';
+    case 'create_note': return 'Created note';
+    case 'delete_note': return 'Deleted note';
+    case 'create_folder': return 'Created folder';
+    case 'delete_folder': return 'Deleted folder';
+    case 'create_snippet': return 'Created snippet';
+    case 'delete_snippet': return 'Deleted snippet';
+    default: return action.charAt(0).toUpperCase() + action.slice(1).replace(/_/g, ' ');
+  }
+};
 
 export default function Dashboard() {
   const user = useAuthUser();
   const navigate = useNavigate();
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [counts, setCounts] = useState<{
     images: number;
     files: number;
@@ -24,6 +55,17 @@ export default function Dashboard() {
     error: null,
   });
 
+  const handleDeleteActivity = async (activityId: number) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase.from('activities').delete().eq('id', activityId).eq('user_id', user.id);
+      if (error) throw error;
+      setActivities(prev => prev.filter(a => a.id !== activityId));
+    } catch (err) {
+      console.error("Failed to delete activity", err);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -33,16 +75,24 @@ export default function Dashboard() {
           { data: imageData, error: imageError },
           { data: fileData, error: fileError },
           { count: noteCount, error: noteError },
-          { count: codeCount, error: codeError }
+          { count: codeCount, error: codeError },
+          { data: activityData, error: activityError }
         ] = await Promise.all([
           supabase.storage.from("user-images").list(`${user.id}`),
           supabase.storage.from("user-files").list(`${user.id}`),
           supabase.from("notes").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-          supabase.from("codes").select("*", { count: "exact", head: true }).eq("user_id", user.id)
+          supabase.from("codes").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+          supabase.from("activities").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5)
         ]);
 
         if (imageError || fileError || noteError || codeError) {
           throw new Error(imageError?.message || fileError?.message || noteError?.message || codeError?.message);
+        }
+
+        if (activityError) {
+          console.error("Error fetching activities:", activityError);
+        } else {
+          setActivities(activityData as Activity[] || []);
         }
 
         setCounts({
@@ -136,9 +186,34 @@ export default function Dashboard() {
             <Clock className="text-gray-400" size={20} />
             <h2 className="text-xl font-semibold">Recent Activity</h2>
           </div>
-          <div className="text-gray-500 text-center py-12 border-2 border-dashed border-gray-700 rounded-lg">
-            <p>Your recent activity will appear here</p>
-          </div>
+          {activities.length > 0 ? (
+            <div className="space-y-4">
+              {activities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-4 p-4 rounded-lg bg-gray-900/50 border border-gray-700/50 hover:bg-gray-800/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-200 truncate">
+                      {getActionText(activity.action)}
+                      <span className="text-blue-400 ml-2">{activity.target_name}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(activity.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteActivity(activity.id)}
+                    className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-400/10 rounded-md"
+                    title="Delete activity"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-500 text-center py-12 border-2 border-dashed border-gray-700 rounded-lg">
+              <p>No recent activity found</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

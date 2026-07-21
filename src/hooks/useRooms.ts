@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase-client";
 import { useAuth } from "../context/AuthContext";
+import { logActivity } from "../lib/activity";
 
 export type Room = {
     id: string;
@@ -82,6 +83,8 @@ export function useRooms() {
 
             if (userAddError) throw new Error("Room created but failed to add you to it.");
 
+            logActivity(user.id, "created_room", data.name.trim());
+
             setSuccess(`Room "${data.name}" created successfully!`);
             await fetchRooms();
             setTimeout(() => setSuccess(null), 3000);
@@ -126,6 +129,8 @@ export function useRooms() {
 
             if (joinError) throw joinError;
 
+            logActivity(user.id, "joined_room", matchingRoom.name);
+
             setSuccess(`Successfully joined "${matchingRoom.name}"!`);
             await fetchRooms();
             setTimeout(() => setSuccess(null), 2000);
@@ -150,6 +155,9 @@ export function useRooms() {
                 const { error } = await supabase.from("room_users").delete().eq("user_id", user.id).eq("room_id", roomId);
                 if (error) throw error;
             }
+
+            const roomName = rooms.find(r => r.id === roomId)?.name || roomId;
+            logActivity(user.id, shouldDelete ? "deleted_room" : "left_room", roomName);
 
             await fetchRooms();
             // toast handled by caller or global listener, but returning success could work.

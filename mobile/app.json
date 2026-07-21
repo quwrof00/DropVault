@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "DropVault",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.shourya.dropvault"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "scheme": "dropvault",
+    "extra": {
+      "supabaseUrl": "https://wwbmyjymygohttimgxoi.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Ym15anlteWdvaHR0aW1neG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5MTc0MzIsImV4cCI6MjA2MzQ5MzQzMn0.xNKRQsNDl-zkLcq7IdnxuKZ7ejbMmEJoeoNOtAWYoMc",
+      "eas": {
+        "projectId": "4f1ecae3-6b1d-4e2c-92b5-b0190138dcf9"
+      }
+    }
+  }
+}

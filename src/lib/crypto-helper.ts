@@ -26,36 +26,20 @@ interface EncryptedData {
  * @returns EncryptedData {ciphertext, iv, salt}
  */
 export async function encrypt(text: string, keyString: string): Promise<EncryptedData> {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    strToBuf(keyString),
-    { name: "PBKDF2" },
+  // v2 Fast Encryption
+  const hashBuffer = await crypto.subtle.digest('SHA-256', strToBuf(keyString));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    hashBuffer,
+    { name: 'AES-GCM' },
     false,
-    ["deriveKey"]
-  );
-
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 150000,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
+    ['encrypt']
   );
 
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
   const ciphertextBuffer = await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
+    { name: "AES-GCM", iv },
     key,
     strToBuf(text)
   );
@@ -63,7 +47,7 @@ export async function encrypt(text: string, keyString: string): Promise<Encrypte
   return {
     ciphertext: bytesToBase64(new Uint8Array(ciphertextBuffer)),
     iv: bytesToBase64(iv),
-    salt: bytesToBase64(salt),
+    salt: "v2",
   };
 }
 
@@ -76,6 +60,25 @@ export async function encrypt(text: string, keyString: string): Promise<Encrypte
 export async function decrypt(encrypted: EncryptedData, keyString: string): Promise<string> {
   const { ciphertext, iv, salt } = encrypted;
 
+  if (salt === "v2") {
+    // v2 Fast Decryption
+    const hashBuffer = await crypto.subtle.digest('SHA-256', strToBuf(keyString));
+    const derivedKey = await crypto.subtle.importKey(
+      'raw',
+      hashBuffer,
+      { name: 'AES-GCM' },
+      false,
+      ['decrypt']
+    );
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64ToBytes(iv) },
+      derivedKey,
+      base64ToBytes(ciphertext)
+    );
+    return bufToStr(decryptedBuffer);
+  }
+
+  // Legacy v1 PBKDF2 decryption
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     strToBuf(keyString),
