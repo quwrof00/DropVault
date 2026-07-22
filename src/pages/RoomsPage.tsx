@@ -6,7 +6,8 @@ import { JoinRoomButton } from"../components/Room/JoinRoomButton";
 import { RoomCard } from"../components/Room/RoomCard";
 import { useRooms } from"../hooks/useRooms";
 import type { RoomFormData } from"../hooks/useRooms";
-import { Dialog, type DialogProps } from"../components/UI/Dialog";
+import { Dialog, type DialogProps } from "../components/UI/Dialog";
+import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
 
 export default function RoomsPage() {
  const user = useAuthUser();
@@ -17,6 +18,15 @@ export default function RoomsPage() {
  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
 
  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title:"" });
+ const [visibleCount, setVisibleCount] = useState(12);
+
+ const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
+
+ useEffect(() => {
+   if (isIntersecting) {
+     setVisibleCount(prev => prev + 12);
+   }
+ }, [isIntersecting]);
 
  useEffect(() => {
  if (error) {
@@ -210,7 +220,7 @@ export default function RoomsPage() {
  </p>
  ) : (
  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
- {rooms.map((room) => (
+ {rooms.slice(0, visibleCount).map((room) => (
  <RoomCard
  key={room.id}
  room={room}
@@ -220,6 +230,12 @@ export default function RoomsPage() {
  />
  ))}
  </div>
+ )}
+
+ {visibleCount < rooms.length && (
+   <div ref={targetRef} className="h-10 w-full flex items-center justify-center mt-4">
+     <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+   </div>
  )}
  </div>
 

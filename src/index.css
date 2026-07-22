@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-200 antialiased;
+  }
+}
 
 @font-face {
   font-family: 'hero-text';

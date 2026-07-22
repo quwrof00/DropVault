@@ -83,9 +83,9 @@ export function Navbar() {
  </div>
  )}
 
- <nav className="bg-gray-900/80 backdrop-blur-2xl border-b border-gray-800 sticky top-0 z-[100] shadow-2xl">
- <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
- <div className="flex justify-between items-center h-16">
+      <nav className="sticky top-0 z-[100] bg-gray-900/70 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.5)] transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-14">
  {/* Left side - Logo and main nav */}
  <div className="flex items-center space-x-4 md:space-x-8">
  <button
@@ -181,15 +181,15 @@ export function Navbar() {
  </div>
  )}
  </div>
- </div>
- </div>
- </nav>
+          </div>
+        </div>
+      </nav>
 
  <style>{`
  @keyframes fade-in {
  from {
  opacity: 0;
- : translateY(-10px) translateX(-50%);
+ transform: translateY(-10px) translateX(-50%);
  }
  to {
  opacity: 1;

@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from"react";
 import { useNavigate } from"react-router-dom";
 import { Dialog, type DialogProps } from"../UI/Dialog";
 import ItemDiscussion from"./ItemDiscussion";
-import { useItemCounts } from"../../hooks/useItemCounts";
+import { useItemCounts } from "../../hooks/useItemCounts";
+import { useIntersectionObserver } from "../../hooks/useIntersectionObserver";
 import { logActivity } from "../../lib/activity";
 
 type FileEntry = {
@@ -92,16 +93,25 @@ export default function Files({ roomId }: FilesProps) {
  const [isLoading, setIsLoading] = useState(false);
  const [dragOver, setDragOver] = useState(false);
  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
- const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title:"" });
+  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+  const [visibleCount, setVisibleCount] = useState(24);
+
+  const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
+
+  useEffect(() => {
+    if (isIntersecting) {
+      setVisibleCount(prev => prev + 24);
+    }
+  }, [isIntersecting]);
+
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchTerm]);
 
  // Real-time comment counts
  const itemCounts = useItemCounts(roomId,'file');
 
  const progressIntervals = useRef<{ [key: string]: NodeJS.Timeout }>({});
-
- // ... (useEffect and helpers unchanged) ...
-
- // ... (inside map) ...
 
 
  useEffect(() => {
@@ -422,8 +432,6 @@ export default function Files({ roomId }: FilesProps) {
 
  const [isRenaming, setIsRenaming] = useState(false);
 
- // ... (handleDelete logic)
-
  const handleRename = async (oldName: string, newNameInput: string) => {
  if (!user) return;
  if (isRenaming) return;
@@ -630,14 +638,18 @@ export default function Files({ roomId }: FilesProps) {
 
  {/* Files List */}
  <div className="space-y-3">
- {filteredFiles.map(([name, file]) => {
+ {filteredFiles.slice(0, visibleCount).map(([name, file]) => {
  const fileIcon = getFileIcon(name);
  return (
  <div
  key={name}
- className="group bg-gray-700 rounded-xl shadow-lg hover:shadow-xl border border-gray-600/50 overflow-hidden"
+ className={`group rounded-2xl shadow-lg transition-all duration-300 overflow-hidden border ${
+ expandedFile === name
+ ? "bg-gray-800/80 border-blue-500/50 shadow-blue-900/20 scale-[1.01]"
+ : "bg-gray-900/40 border-white/5 hover:border-blue-500/30 hover:bg-gray-800/60"
+ }`}
  >
- <div className="p-3 sm:p-4">
+ <div className="p-3 sm:p-5">
  {renamingFile === name ? (
  <div className="space-y-3">
  <div className="flex items-center gap-3">
@@ -664,7 +676,6 @@ export default function Files({ roomId }: FilesProps) {
  />
  </div>
  <div className="flex gap-2">
- {/* Save/Cancel buttons same as before */}
  <button
  onClick={() => handleRename(name, newFileName.trim())}
  disabled={isRenaming}
@@ -689,7 +700,7 @@ export default function Files({ roomId }: FilesProps) {
  <div>
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
- <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${fileIcon.bg} flex items-center justify-center text-sm sm:text-lg flex-shrink-0`}>
+ <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-xl ${fileIcon.bg} flex items-center justify-center text-sm sm:text-2xl flex-shrink-0 shadow-inner border border-white/5 group-hover:scale-105 transition-transform duration-300`}>
  {fileIcon.icon}
  </div>
 
@@ -754,7 +765,6 @@ export default function Files({ roomId }: FilesProps) {
  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
  </svg>
- {/* Make sure itemCounts is available from local scope, it was defined as const itemCounts = useItemCounts(...) at top of component */}
  {itemCounts[name] > 0 && (
  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white ring-2 ring-gray-900">
  {itemCounts[name] > 99 ?'99+' : itemCounts[name]}
@@ -764,19 +774,6 @@ export default function Files({ roomId }: FilesProps) {
  )}
 
  {file.uploaded && (
- <>
- <a
- href={getPublicUrl(name)}
- download={name}
- className="p-1.5 sm:p-2 text-gray-400 hover:text-green-400 hover:bg-green-400/10 rounded-lg"
- title="Download file"
- >
- <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
- <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
- d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
- </svg>
- </a>
-
  <button
  onClick={() => {
  setRenamingFile(name);
@@ -790,7 +787,6 @@ export default function Files({ roomId }: FilesProps) {
  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
  </svg>
  </button>
- </>
  )}
 
  <button
@@ -819,6 +815,13 @@ export default function Files({ roomId }: FilesProps) {
  );
  })}
  </div>
+
+ {/* Infinite Scroll Target */}
+ {visibleCount < filteredFiles.length && (
+ <div ref={targetRef} className="h-10 w-full flex items-center justify-center mt-4">
+ <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+ </div>
+ )}
  </div>
  );
 }

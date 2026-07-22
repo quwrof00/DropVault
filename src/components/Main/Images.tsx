@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from"react"
 import { Dialog, type DialogProps } from"../UI/Dialog"
 import ItemDiscussion from"./ItemDiscussion"
 import { useItemCounts } from"../../hooks/useItemCounts"
+import { useIntersectionObserver } from "../../hooks/useIntersectionObserver"
 import { useQuery, useQueryClient } from"@tanstack/react-query"
 import { logActivity } from "../../lib/activity";
 
@@ -65,6 +66,19 @@ export default function Images({ roomId }: ImagesProps) {
  const [selectedImage, setSelectedImage] = useState<string | null>(null)
  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
  const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title:"" });
+ const [visibleCount, setVisibleCount] = useState(24)
+
+ const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' })
+
+ useEffect(() => {
+   if (isIntersecting) {
+     setVisibleCount(prev => prev + 24)
+   }
+ }, [isIntersecting])
+
+ useEffect(() => {
+   setVisibleCount(24)
+ }, [searchTerm]);
 
  // Real-time comment counts
  const itemCounts = useItemCounts(roomId,'image');
@@ -777,7 +791,7 @@ export default function Images({ roomId }: ImagesProps) {
 
  {/* Image Grid */}
  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
- {filteredFiles.map(([name, file]) => (
+ {filteredFiles.slice(0, visibleCount).map(([name, file]) => (
  <div
  key={name}
  onClick={() => toggleSelect(name)}
@@ -920,15 +934,6 @@ export default function Images({ roomId }: ImagesProps) {
  >
  Preview
  </a>
-
- <a
- href={makePublicUrl(file.pathPrefix, name)}
- download={name}
- onClick={(e) => e.stopPropagation()}
- className="flex-1 text-center bg-green-600/20 text-green-400 py-2 px-3 rounded-lg hover:bg-green-600/30 text-sm font-medium"
- >
- Download
- </a>
  </div>
  )}
 
@@ -988,6 +993,13 @@ export default function Images({ roomId }: ImagesProps) {
  </div>
  ))}
  </div>
+
+      {/* Infinite Scroll Target */}
+      {visibleCount < filteredFiles.length && (
+        <div ref={targetRef} className="h-10 w-full flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
 
  {/* Image Modal */}
  {selectedImage && (

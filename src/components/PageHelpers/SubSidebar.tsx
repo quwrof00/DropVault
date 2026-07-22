@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from"react";
-import { Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus, FileText } from"lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus, FileText } from "lucide-react";
+import { useIntersectionObserver } from "../../hooks/useIntersectionObserver";
 
 interface SidebarProps {
  search: string;
@@ -48,9 +49,22 @@ const SubSidebar: React.FC<SidebarProps> = ({
  const [isDesktopOpen, setIsDesktopOpen] = useState(true);
  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
  const [viewMode, setViewMode] = useState<'folders' |'files'>('folders'); //'folders' (Tree) |'files' (Stray/Root only)
+ const [visibleCount, setVisibleCount] = useState(50);
+
+ const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
+
+ useEffect(() => {
+   if (isIntersecting) {
+     setVisibleCount(prev => prev + 50);
+   }
+ }, [isIntersecting]);
+
+ useEffect(() => {
+   setVisibleCount(50);
+ }, [search, viewMode]);
 
  // Build tree structure
- const treeStructure = useMemo(() => {
+ const { treeStructure, totalCount } = useMemo(() => {
  const root: TreeNode[] = [];
  const folderMap = new Map<string, TreeNode>();
 
@@ -83,7 +97,9 @@ const SubSidebar: React.FC<SidebarProps> = ({
  return aParts.length - bParts.length;
  });
 
- sortedItems.forEach(item => {
+ const itemsToRender = sortedItems.slice(0, visibleCount);
+
+ itemsToRender.forEach(item => {
  const parts = item.split('/');
 
  if (parts.length === 1) {
@@ -116,8 +132,8 @@ const SubSidebar: React.FC<SidebarProps> = ({
  }
  }
  });
- return root;
- }, [items, search, viewMode]);
+ return { treeStructure: root, totalCount: sortedItems.length };
+ }, [items, search, viewMode, visibleCount]);
 
  const toggleFolder = (folderPath: string) => {
  setExpandedFolders(prev => {
@@ -158,13 +174,10 @@ const SubSidebar: React.FC<SidebarProps> = ({
  // ... (folder rendering) ...
 
  if (node.type ==='folder') {
- // ...
- // (Existing folder rendering logic)
- // ...
  return (
  <div key={node.fullPath}>
  <div
- className="flex items-center justify-between hover:bg-gray-600 rounded-md px-2 py-2 group cursor-pointer"
+ className="flex items-center justify-between rounded-lg px-2 py-2 group cursor-pointer hover:bg-gray-700/50 transition-colors duration-200"
  style={{ paddingLeft:`${paddingLeft}px` }}
  >
  <div
@@ -173,7 +186,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  >
  {isExpanded ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
  <Folder size={14} className="text-yellow-500 flex-shrink-0" />
- <span className="truncate text-sm text-gray-200" title={node.name}>{node.name}</span>
+ <span className="truncate text-sm text-gray-300 group-hover:text-gray-100 transition-colors duration-200" title={node.name}>{node.name}</span>
  </div>
 
  {(isDesktopOpen || window.innerWidth < 768) && (
@@ -200,7 +213,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  return (
  <div
  key={node.fullPath}
- className={`flex items-center justify-between hover:bg-gray-600 rounded-md px-2 py-2 group cursor-pointer ${isSelected ?'bg-blue-900' :''}`}
+ className={`flex items-center justify-between rounded-lg px-2 py-2 group cursor-pointer transition-colors duration-200 ${isSelected ? 'bg-blue-600/20 shadow-[inset_2px_0_0_0_rgb(59,130,246)]' : 'hover:bg-gray-700/50'}`}
  style={{ paddingLeft:`${paddingLeft}px` }}
  onClick={() => {
  onSelect(node.fullPath);
@@ -209,7 +222,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  >
  <div className="flex items-center gap-2 flex-1 min-w-0">
  <File size={14} className="text-blue-400 flex-shrink-0" />
- <span className={`truncate text-sm ${isSelected ?'text-blue-300 font-medium' :'text-gray-200'}`} title={node.name}>{node.name}</span>
+ <span className={`truncate text-sm transition-colors duration-200 ${isSelected ? 'text-blue-400 font-semibold' : 'text-gray-300 group-hover:text-gray-100'}`} title={node.name}>{node.name}</span>
  {count > 0 && (
  <span className="ml-2 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-1 ring-gray-900">
  {count > 99 ?'99+' : count}
@@ -336,6 +349,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
  <div className="space-y-1">
  {treeStructure.map(node => renderTreeNode(node))}
  </div>
+ )}
+ {totalCount > visibleCount && (
+   <div ref={targetRef} className="h-10 w-full flex items-center justify-center mt-4">
+     <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+   </div>
  )}
  </div>
  </div>
