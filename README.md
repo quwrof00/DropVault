@@ -1,81 +1,92 @@
 # DropVault
 
-DropVault is a modern, secure, and collaborative workspace application designed to streamline team productivity. It combines real-time collaboration with secure file management, all wrapped in a sleek, responsive user interface.
+DropVault is a secure, collaborative workspace application designed for seamless team productivity. It offers real-time synchronization, robust file management, and end-to-end security within a responsive and modern interface.
 
-## Features
+## Key Features
 
-- **Real-time Collaboration**: Work together on notes and documents in real-time using Tiptap and Yjs. See changes instantly as team members type.
-- **Secure Architecture**: Built with security in mind, featuring client-side encryption for sensitive data.
-- **Room-based Workspaces**: Create dedicated rooms for different projects or teams to keep your work organized.
-- **File Management**: Efficient management system for Files, Notes, and Images.
-- **Modern UI/UX**: A polished interface featuring glassmorphism, smooth animations, and a responsive design built with Tailwind CSS.
-- **Interactive Dashboard**: A personal dashboard to manage your tasks, rooms, and files at a glance.
-- **Secure Authentication**: Robust user registration and login flows.
+- Real-time Collaboration: Edit notes and documents simultaneously with your team using Tiptap and Yjs.
+- Secure Architecture: Protect your sensitive information with client-side encryption.
+- Organized Workspaces: Create dedicated rooms to compartmentalize projects and team activities.
+- Comprehensive File Management: Upload, organize, and access files, notes, and images efficiently.
+- Modern User Interface: Experience a sleek design featuring glassmorphism effects and responsive layouts built with Tailwind CSS.
+- Interactive Dashboard: Monitor tasks, recent rooms, and managed files from a centralized hub.
+- Robust Authentication: Secure user registration and login powered by Supabase.
 
-## Tech Stack
+## Technology Stack
 
-- **Frontend**: [React](https://react.dev/) (v19), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Collaboration**: [Yjs](https://github.com/yjs/yjs) (CRDTs), [Tiptap](https://tiptap.dev/), [Socket.io](https://socket.io/) / WebSockets
-- **Backend/Storage**: [Supabase](https://supabase.com/), Node.js (for collab server)
-- **Icons**: [Lucide React](https://lucide.dev/)
+### Frontend
+- React (v19)
+- TypeScript
+- Vite
+- Tailwind CSS
 
-## Getting Started
+### Collaboration and Data Sync
+- Yjs (CRDTs)
+- Tiptap
+- WebSockets via Socket.io
 
-Follow these steps to get the project running on your local machine.
+### Backend and Storage
+- Node.js (Collaboration Server)
+- Supabase
+
+## Setup Instructions
+
+Follow these steps to run DropVault locally on your machine.
 
 ### Prerequisites
 
-- Node.js (v18 or higher recommended)
+- Node.js (version 18 or newer is recommended)
 - npm or yarn
 
 ### Installation
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/quwrof00/drop-vault.git
-    cd drop-vault
-    ```
+1. Clone the repository
+```bash
+git clone https://github.com/quwrof00/drop-vault.git
+cd drop-vault
+```
 
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
+2. Install all dependencies
+```bash
+npm install
+```
 
-3.  **Environment Setup**
-    Create a `.env` file in the root directory and configure your environment variables. You may need Supabase credentials and WebSocket URL configuration.
-    ```env
-    VITE_SUPABASE_URL=your_supabase_url
-    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-    VITE_WS_URL=ws://localhost:1234
-    ```
+3. Configure Environment Variables
+Create a `.env` file in the root of your project and populate it with your specific details.
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_WS_URL=ws://localhost:1234
+```
 
-### Running the Application
+### Running the Application Locally
 
-1.  **Start the Collaboration Server** (Required for real-time features)
-    ```bash
-    npm run collab:server
-    ```
+1. Start the Collaboration Server
+This server handles real-time synchronizations.
+```bash
+npm run collab:server
+```
 
-2.  **Start the Frontend Development Server**
-    ```bash
-    npm run dev
-    ```
+2. Start the Frontend Server
+Open a new terminal window and run the following command.
+```bash
+npm run dev
+```
 
-    The application should now be running at `http://localhost:5173`.
+The application will be accessible at `http://localhost:5173`.
 
-## Scripts
+## Available Scripts
 
 - `npm run dev`: Starts the Vite development server.
-- `npm run build`: Builds the application for production.
-- `npm run lint`: Runs ESLint to check for code quality issues.
-- `npm run preview`: Previews the production build locally.
-- `npm run collab:server`: Starts the WebSocket server for real-time collaboration.
+- `npm run build`: Compiles TypeScript and builds the application for production.
+- `npm run lint`: Checks for code quality issues using ESLint.
+- `npm run preview`: Hosts the production build locally for testing.
+- `npm run collab:server`: Starts the WebSocket server for live collaboration features.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions. Please submit a Pull Request to propose your changes.
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the MIT License. Please refer to the LICENSE file for details.
