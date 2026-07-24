@@ -126,18 +126,19 @@ export default function Images({ roomId }: ImagesProps) {
  primaryList.forEach((file) => {
  const fileName = file.name
  if (isImageFile(fileName) && !fileName.startsWith('thumb_')) {
- const publicUrl = makePublicUrl(prefixes.primary, fileName)
+ const lastModified = new Date(file.updated_at || file.created_at || Date.now()).getTime()
+ const publicUrl = makePublicUrl(prefixes.primary, fileName) + `?v=${lastModified}`
  const thumbName = `thumb_${fileName}`
  const hasThumb = primaryList.some(f => f.name === thumbName)
  mergedFiles[fileName] = {
  name: fileName,
  blob: new Blob(),
  uploaded: true,
- lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
+ lastModified,
  progress: 100,
  url: publicUrl,
  previewUrl: publicUrl,
- thumbnailUrl: hasThumb ? makePublicUrl(prefixes.primary, thumbName) : undefined,
+ thumbnailUrl: hasThumb ? makePublicUrl(prefixes.primary, thumbName) + `?v=${lastModified}` : undefined,
  pathPrefix: prefixes.primary,
  }
  }
@@ -153,18 +154,19 @@ export default function Images({ roomId }: ImagesProps) {
  legacyList.forEach((file) => {
  const fileName = file.name
  if (isImageFile(fileName) && !fileName.startsWith('thumb_') && !mergedFiles[fileName]) {
- const publicUrl = makePublicUrl(prefixes.legacy, fileName)
+ const lastModified = new Date(file.updated_at || file.created_at || Date.now()).getTime()
+ const publicUrl = makePublicUrl(prefixes.legacy, fileName) + `?v=${lastModified}`
  const thumbName = `thumb_${fileName}`
  const hasThumb = legacyList.some(f => f.name === thumbName)
  mergedFiles[fileName] = {
  name: fileName,
  blob: new Blob(),
  uploaded: true,
- lastModified: new Date(file.updated_at || file.created_at || Date.now()).getTime(),
+ lastModified,
  progress: 100,
  url: publicUrl,
  previewUrl: publicUrl,
- thumbnailUrl: hasThumb ? makePublicUrl(prefixes.legacy, thumbName) : undefined,
+ thumbnailUrl: hasThumb ? makePublicUrl(prefixes.legacy, thumbName) + `?v=${lastModified}` : undefined,
  pathPrefix: prefixes.legacy,
  }
  }
@@ -243,32 +245,34 @@ export default function Images({ roomId }: ImagesProps) {
  clearInterval(interval)
 
  if (!uploadError) {
- const pathPrefix = roomId ?`room-${roomId}` :`${user.id}`
- const publicUrl = makePublicUrl(pathPrefix, fileEntry.name)
+ const pathPrefix = roomId ? `room-${roomId}` : `${user.id}`
+ const timestamp = Date.now()
+ const publicUrl = makePublicUrl(pathPrefix, fileEntry.name) + `?v=${timestamp}`
 
- // Trigger background thumbnail processing
- fetch('http://localhost:1234/api/images/process', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    userId: roomId ? null : user.id,
-    roomId: roomId || null,
-    fileName: fileEntry.name,
-    fileType: fileEntry.blob.type
-  })
- }).catch(err => console.error("Failed to trigger background process:", err));
+  // Trigger background thumbnail processing
+  fetch('http://localhost:1234/api/images/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: roomId ? null : user.id,
+      roomId: roomId || null,
+      fileName: fileEntry.name,
+      fileType: fileEntry.blob.type
+    })
+  }).catch(err => console.error("Failed to trigger background process:", err));
 
- queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
+  queryClient.invalidateQueries({ queryKey: ["images", prefixes.primary, prefixes.legacy] });
 
  setFiles((prev) => ({
  ...prev,
  [fileEntry.name]: {
- ...fileEntry,
+ ...prev[fileEntry.name],
  uploaded: true,
  progress: 100,
  url: publicUrl,
  previewUrl: publicUrl,
- pathPrefix,
+ // Thumbnail might not exist instantly, but url will have the right timestamp
+ thumbnailUrl: makePublicUrl(pathPrefix, `thumb_${fileEntry.name}`) + `?v=${timestamp}`
  },
  }))
 

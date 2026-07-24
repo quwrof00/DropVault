@@ -10,11 +10,14 @@ export interface DialogProps {
  type?:"alert" |"confirm" |"input";
  confirmText?: string;
  cancelText?: string;
- onConfirm?: (value?: string) => void | Promise<void>;
+ onConfirm?: (value?: string, checkboxValue?: boolean) => void | Promise<void>;
  isLoading?: boolean;
  variant?:"default" |"danger";
  defaultValue?: string;
  placeholder?: string;
+ showCheckbox?: boolean;
+ checkboxLabel?: string;
+ defaultCheckboxValue?: boolean;
 }
 
 export function Dialog({
@@ -31,19 +34,24 @@ export function Dialog({
  variant ="default",
  defaultValue ="",
  placeholder ="",
+ showCheckbox = false,
+ checkboxLabel = "",
+ defaultCheckboxValue = false,
 }: DialogProps) {
  const [localIsLoading, setLocalIsLoading] = useState(false);
  const [inputValue, setInputValue] = useState(defaultValue);
+ const [checkboxValue, setCheckboxValue] = useState(defaultCheckboxValue ?? false);
  const inputRef = useRef<HTMLInputElement>(null);
 
  useEffect(() => {
  if (isOpen) {
  setInputValue(defaultValue);
+ setCheckboxValue(defaultCheckboxValue ?? false);
  if (type ==="input") {
  setTimeout(() => inputRef.current?.focus(), 100);
  }
  }
- }, [isOpen, defaultValue, type]);
+ }, [isOpen, defaultValue, defaultCheckboxValue, type]);
 
  if (!isOpen) return null;
 
@@ -51,7 +59,7 @@ export function Dialog({
  setLocalIsLoading(true);
  try {
  if (type ==="input") {
- if (onConfirm) await onConfirm(inputValue);
+ if (onConfirm) await onConfirm(inputValue, checkboxValue);
  } else {
  if (onConfirm) await onConfirm();
  }
@@ -105,6 +113,22 @@ export function Dialog({
  }}
  />
  )}
+
+ {showCheckbox && (
+    <div className="mt-4 flex items-center">
+      <input
+        type="checkbox"
+        id="dialog-checkbox"
+        checked={checkboxValue}
+        onChange={(e) => setCheckboxValue(e.target.checked)}
+        disabled={isBusy}
+        className="w-4 h-4 text-blue-600 bg-gray-900 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+      />
+      <label htmlFor="dialog-checkbox" className="ml-2 text-sm font-medium text-gray-300">
+        {checkboxLabel}
+      </label>
+    </div>
+  )}
  </div>
 
  <div className="flex items-center justify-end gap-3 p-4 bg-gray-800/50 border-t border-gray-700">

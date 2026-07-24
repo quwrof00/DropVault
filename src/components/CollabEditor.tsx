@@ -29,7 +29,8 @@ function TiptapEditor({
  roomId,
  fileName,
  onCopy,
- onUpdate
+ onUpdate,
+ isFullScreen
 }: {
  provider: WebsocketProvider;
  doc: Y.Doc;
@@ -38,6 +39,7 @@ function TiptapEditor({
  fileName: string;
  onCopy: (text: string) => void;
  onUpdate: (content: string) => void;
+ isFullScreen?: boolean;
 }) {
  const [copied, setCopied] = useState(false);
  const [isSynced, setIsSynced] = useState(false);
@@ -129,7 +131,7 @@ function TiptapEditor({
  return (
  <div className="editor-wrapper flex flex-col h-full">
  {/* Toolbar */}
- <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md">
+ <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md justify-between">
  <div className="flex items-center gap-1">
  <button
  onClick={() => editor.chain().focus().toggleBold().run()}
@@ -211,7 +213,7 @@ function TiptapEditor({
  </button>
  </div>
 
- <div className="flex items-center gap-3">
+ <div className={`flex items-center gap-3 ${isFullScreen ? 'mr-12' : ''}`}>
  <div className="flex items-center gap-2">
  <span className={`relative flex h-2 w-2`}>
  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status ==='connected' && isSynced ?'bg-green-400' :
@@ -263,12 +265,14 @@ export default function CollabEditor({
  roomId,
  fileName,
  initialContent,
- onUpdate
+ onUpdate,
+ isFullScreen
 }: {
  roomId: string;
  fileName: string;
  initialContent?: string;
  onUpdate: (content: string) => void;
+ isFullScreen?: boolean;
 }) {
  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
  const [doc, setDoc] = useState<Y.Doc | null>(null);
@@ -317,6 +321,7 @@ export default function CollabEditor({
  fileName={fileName}
  onCopy={handleCopy}
  onUpdate={onUpdate}
+ isFullScreen={isFullScreen}
  />
  );
 }

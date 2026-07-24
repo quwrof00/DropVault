@@ -18,16 +18,16 @@ self.onmessage = async (e: MessageEvent) => {
 
         // Process batch in parallel
         const results = await Promise.all(batch.map(async (note: any) => {
-            const { title, ciphertext, iv, salt } = note;
+            const { title, ciphertext, iv, salt, updated_at } = note;
             try {
                 let content = "";
                 if (ciphertext && iv && salt) {
                     content = await decrypt({ ciphertext, iv, salt }, secretKey);
                 }
-                return { title, content };
+                return { title, content, updated_at };
             } catch (err) {
                 console.error(`Worker failed to decrypt ${title}:`, err);
-                return { title, content: "[Decryption Failed]" };
+                return { title, content: "[Decryption Failed]", updated_at };
             }
         }));
 

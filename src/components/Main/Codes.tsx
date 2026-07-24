@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from"react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from"react-router-dom";
 import { useAuthUser } from"../../hooks/useAuthUser";
 import { supabase } from"../../lib/supabase-client";
@@ -40,11 +40,11 @@ export default function Codes({ roomId }: CodesProps) {
  const [error, setError] = useState<string | null>(null);
 
  // Dialog State
- const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title:"" });
-
- const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
+ const [dialog, setDialog] = useState<Partial<DialogProps> & { isOpen: boolean }>({ isOpen: false, title: "" });
+ const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+ const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
  const isMountedRef = useRef(true);
  const lastSavedCodeRef = useRef<string>("");
 
@@ -84,8 +84,8 @@ export default function Codes({ roomId }: CodesProps) {
  const supabaseSnippets: { [key: string]: Snippet } = {};
  for (const { title, code, language } of supabaseData || []) {
  supabaseSnippets[title] = {
- code: code ||"",
- language: language ||"javascript",
+ code: code || "",
+ language: language || "javascript",
  };
  }
 
@@ -110,7 +110,8 @@ export default function Codes({ roomId }: CodesProps) {
 
  // Dedicated Save Function
  const saveSnippet = async (title: string, newCode: string, language: string, forceImmediate = false) => {
- if (!user || !title || !isMountedRef.current) return;
+  if (!user || !title) return;
+  if (!isMountedRef.current && !forceImmediate) return;
 
  // Skip if no changes, unless forced
  if (!forceImmediate && newCode === lastSavedCodeRef.current) return;
@@ -128,7 +129,7 @@ export default function Codes({ roomId }: CodesProps) {
  room_id: roomId ?? null,
  },
  {
- onConflict: roomId ?"user_id,title,room_id" :"user_id,title",
+ onConflict: roomId ? "user_id,title,room_id" : "user_id,title",
  }
  );
 
@@ -154,74 +155,89 @@ export default function Codes({ roomId }: CodesProps) {
  }
  };
 
- // Auto-save effect
- useEffect(() => {
- if (!currentTitle || !user) return;
- const snippet = snippets[currentTitle];
- if (!snippet) return;
+  const currentTitleRef = useRef(currentTitle);
+  const codeRef = useRef(code);
+  const snippetsRef = useRef(snippets);
 
- if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+  useEffect(() => {
+    currentTitleRef.current = currentTitle;
+    codeRef.current = code;
+    snippetsRef.current = snippets;
+  }, [currentTitle, code, snippets]);
 
- saveTimeoutRef.current = setTimeout(() => {
- if (isMountedRef.current && code !== lastSavedCodeRef.current) {
- saveSnippet(currentTitle, code, snippet.language).catch(console.error);
- }
- }, 2000);
+  const forceSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current);
+      throttleTimeoutRef.current = null;
+    }
+    const t = currentTitleRef.current;
+    const c = codeRef.current;
+    const s = snippetsRef.current;
+    
+    if (user && t && c !== lastSavedCodeRef.current) {
+      const snippet = s[t];
+      if (snippet) {
+        saveSnippet(t, c, snippet.language, true).catch(console.error);
+      }
+    }
+  }, [user]);
 
- return () => {
- if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
- };
- }, [code, currentTitle, user, roomId, snippets]); // Note: snippets dependency might re-trigger if other fields change, but code check protects us
+  const scheduleSave = useCallback(() => {
+    // Throttle ceiling
+    if (!throttleTimeoutRef.current) {
+      throttleTimeoutRef.current = setTimeout(() => {
+        forceSave();
+      }, 5000);
+    }
 
- // Save on visibility change and unload
- useEffect(() => {
- if (!user || !currentTitle) return;
+    // Debounce inactivity
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      forceSave();
+    }, 1500);
+  }, [forceSave]);
 
- const handleVisibilityChange = () => {
- if (document.visibilityState ==="hidden" && code !== lastSavedCodeRef.current) {
- const snippet = snippets[currentTitle];
- if (snippet) {
- saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
- }
- }
- };
+  // Save on visibility change and unload
+  useEffect(() => {
+    if (!user) return;
 
- const handleBeforeUnload = (event: BeforeUnloadEvent) => {
- if (code !== lastSavedCodeRef.current) {
- const snippet = snippets[currentTitle];
- if (snippet) {
- saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
- }
- event.preventDefault();
- event.returnValue ='';
- }
- };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        forceSave();
+      }
+    };
 
- document.addEventListener("visibilitychange", handleVisibilityChange);
- window.addEventListener("beforeunload", handleBeforeUnload);
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (codeRef.current !== lastSavedCodeRef.current) {
+        forceSave();
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
 
- return () => {
- document.removeEventListener("visibilitychange", handleVisibilityChange);
- window.removeEventListener("beforeunload", handleBeforeUnload);
- };
- }, [user, currentTitle, code, snippets]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
- // Component cleanup
- useEffect(() => {
- isMountedRef.current = true;
- return () => {
- isMountedRef.current = false;
- if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [user, forceSave]);
 
- // Attempt final save on unmount if needed
- if (user && currentTitle && code !== lastSavedCodeRef.current) {
- const snippet = snippets[currentTitle];
- if (snippet) {
- saveSnippet(currentTitle, code, snippet.language, true).catch(console.error);
- }
- }
- };
- }, [user, currentTitle, code, snippets]);
+  // Component cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      forceSave();
+    };
+  }, [forceSave]);
 
  if (user === undefined || isLoading) {
  return (
@@ -239,12 +255,27 @@ export default function Codes({ roomId }: CodesProps) {
  );
  }
 
- const handleSelect = (title: string) => {
- setCurrentTitle(title);
- setCode(snippets[title].code);
- setError(null);
- setIsSidebarOpen(false); // Close on mobile
- };
+  const handleSelect = (title: string) => {
+    let currentSnippets = snippets;
+
+    // Save current snippet code synchronously to state before switching
+    if (currentTitle && code !== lastSavedCodeRef.current) {
+      currentSnippets = {
+        ...snippets,
+        [currentTitle]: { ...snippets[currentTitle], code }
+      };
+      setSnippets(currentSnippets);
+      forceSave();
+    }
+
+    setCurrentTitle(title);
+    currentTitleRef.current = title;
+    setCode(currentSnippets[title]?.code || "");
+    codeRef.current = currentSnippets[title]?.code || "";
+    lastSavedCodeRef.current = currentSnippets[title]?.code || "";
+    setError(null);
+    setIsSidebarOpen(false); // Close on mobile
+  };
 
  // Dialog Helpers
  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
@@ -460,9 +491,11 @@ export default function Codes({ roomId }: CodesProps) {
  }
  };
 
- const handleCodeChange = (code: string) => {
- setCode(code);
- };
+  const handleCodeChange = (code: string) => {
+    setCode(code);
+    codeRef.current = code;
+    scheduleSave();
+  };
 
  const filteredSnippets = Object.keys(snippets)
  .filter((title) => title.toLowerCase().includes(search.toLowerCase()))

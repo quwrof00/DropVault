@@ -172,14 +172,14 @@ export default function Files({ roomId }: FilesProps) {
 
 
 
- const getPublicUrl = (fileName: string) => {
- if (!user) return;
- const folderPath = roomId ?`room-${roomId}` : user.id;
- const { data } = supabase.storage
- .from("user-files")
- .getPublicUrl(`${folderPath}/${fileName}`);
- return data.publicUrl;
- };
+  const getPublicUrl = (fileName: string, lastModified?: number) => {
+    if (!user) return;
+    const folderPath = roomId ? `room-${roomId}` : user.id;
+    const { data } = supabase.storage
+      .from("user-files")
+      .getPublicUrl(`${folderPath}/${fileName}`);
+    return data.publicUrl + (lastModified ? `?v=${lastModified}` : '');
+  };
 
  const uploadToSupabase = async (fileEntry: FileEntry) => {
  if (!user) return;
@@ -707,7 +707,7 @@ export default function Files({ roomId }: FilesProps) {
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
  <a
- href={getPublicUrl(name)}
+ href={getPublicUrl(name, file.lastModified)}
  target="_blank"
  rel="noreferrer"
  className="font-medium text-sm sm:text-base text-gray-200 hover:text-blue-400 truncate"
