@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:1234/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 export async function logActivity(userId: string, action: string, targetName?: string) {
   try {

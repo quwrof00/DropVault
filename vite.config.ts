@@ -11,4 +11,12 @@ export default defineConfig({
       '@tiptap/y-tiptap': path.resolve(__dirname, 'node_modules/@tiptap/y-tiptap/dist/y-tiptap.js'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:1234',
+        changeOrigin: true,
+      }
+    }
+  }
 })

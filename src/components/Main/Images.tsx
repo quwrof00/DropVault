@@ -250,7 +250,8 @@ export default function Images({ roomId }: ImagesProps) {
  const publicUrl = makePublicUrl(pathPrefix, fileEntry.name) + `?v=${timestamp}`
 
   // Trigger background thumbnail processing
-  fetch('http://localhost:1234/api/images/process', {
+  const apiUrl = import.meta.env.VITE_API_URL || '/api';
+  fetch(`${apiUrl}/images/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
