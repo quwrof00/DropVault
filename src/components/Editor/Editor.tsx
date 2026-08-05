@@ -39,6 +39,15 @@ const ClipboardIcon = ({ copied }: CopyProps) => (
   </svg>
 );
 
+const modules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    ['clean']
+  ],
+};
+
 export default function Editor({ content, onUpdate, isFullScreen }: EditorProps) {
   const [copied, setCopied] = useState(false);
 
@@ -55,15 +64,6 @@ export default function Editor({ content, onUpdate, isFullScreen }: EditorProps)
       console.error('Failed to copy:', error);
     }
   }
-
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      ['clean']
-    ],
-  };
 
   return (
     <div className="editor-wrapper flex flex-col h-full quill-dark-theme relative bg-gray-800/10 rounded-lg overflow-hidden shadow-sm">

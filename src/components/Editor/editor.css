@@ -144,6 +144,10 @@
 
 /* 5. Editor Writing Area */
 .quill-dark-theme .ql-container.ql-snow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: none;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 1.05rem;
@@ -151,8 +155,9 @@
 }
 
 .quill-dark-theme .ql-editor {
+  flex: 1;
+  overflow-y: auto;
   padding: 24px 32px;
-  min-height: calc(100vh - 350px);
   color: #f3f4f6;
 }
 .quill-dark-theme .ql-editor.ql-blank::before {
