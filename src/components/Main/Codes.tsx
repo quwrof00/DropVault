@@ -20,6 +20,7 @@ const languages = [
 type Snippet = {
  code: string;
  language: string;
+ user_id?: string;
 };
 
 type CodesProps = {
@@ -63,13 +64,12 @@ export default function Codes({ roomId }: CodesProps) {
  try {
  let query = supabase
  .from("codes")
- .select("title, code, language")
- .eq("user_id", user.id);
+ .select("title, code, language, user_id");
 
  if (roomId) {
  query = query.eq("room_id", roomId);
  } else {
- query = query.is("room_id", null);
+ query = query.eq("user_id", user.id).is("room_id", null);
  }
 
  const { data: supabaseData, error } = await query;
@@ -82,10 +82,11 @@ export default function Codes({ roomId }: CodesProps) {
  }
 
  const supabaseSnippets: { [key: string]: Snippet } = {};
- for (const { title, code, language } of supabaseData || []) {
+ for (const { title, code, language, user_id } of supabaseData || []) {
  supabaseSnippets[title] = {
  code: code || "",
  language: language || "javascript",
+ user_id: user_id || undefined,
  };
  }
 
@@ -328,7 +329,7 @@ export default function Codes({ roomId }: CodesProps) {
  return;
  }
 
- const newSnippet = { code:"", language:"javascript" };
+ const newSnippet = { code:"", language:"javascript", user_id: user.id };
  setSnippets((prev) => ({ ...prev, [trimmedTitle]: newSnippet }));
  setCurrentTitle(trimmedTitle);
  setCode("");
@@ -542,6 +543,10 @@ export default function Codes({ roomId }: CodesProps) {
  isCreating={isCreating}
  isOpen={isSidebarOpen}
  onClose={() => setIsSidebarOpen(false)}
+ isItemEditable={(path) => {
+   const snippet = snippets[path];
+   return snippet ? (!snippet.user_id || snippet.user_id === user?.id) : true;
+ }}
  />
 
  {/* Editor Area */}
@@ -577,11 +582,17 @@ export default function Codes({ roomId }: CodesProps) {
  Room Snippets
  </div>
  )}
+ {/* Read-only badge */}
+ {currentTitle && snippets[currentTitle]?.user_id && snippets[currentTitle].user_id !== user?.id && (
+ <div className="bg-red-600/20 text-red-300 px-3 py-1 rounded-full text-sm font-medium border border-red-600/30">
+ Read Only
+ </div>
+ )}
 
  {/* Language selector */}
  <div className="relative">
  <select
- disabled={!currentTitle}
+ disabled={!currentTitle || (!!snippets[currentTitle]?.user_id && snippets[currentTitle].user_id !== user?.id)}
  value={currentTitle ? snippets[currentTitle]?.language :"javascript"}
  onChange={(e) => handleLanguageChange(e.target.value)}
  className="p-2 pl-3 pr-8 rounded-lg border border-gray-600/50 bg-gray-800/50 backdrop-blur-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -625,6 +636,7 @@ export default function Codes({ roomId }: CodesProps) {
  value={code}
  onChange={(e) => handleCodeChange(e.target.value)}
  padding={20}
+ disabled={!!snippets[currentTitle]?.user_id && snippets[currentTitle].user_id !== user?.id}
  style={{
  fontSize: 14,
  backgroundColor:"transparent",

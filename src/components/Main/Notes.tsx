@@ -28,6 +28,7 @@ interface NoteRow {
   salt: string | null;
   updated_at: string | null;
   is_collaborative?: boolean | null;
+  user_id?: string | null;
 }
 
 export default function Notes({ roomId }: NotesProps) {
@@ -103,7 +104,7 @@ export default function Notes({ roomId }: NotesProps) {
           .upsert({
             ...noteData,
             room_id: roomId,
-            user_id: null
+            user_id: user.id
           }, { onConflict: 'room_id,title' });
       } else {
         query = supabase
@@ -162,7 +163,7 @@ export default function Notes({ roomId }: NotesProps) {
       if (!user) return null;
       let query = supabase
         .from("notes")
-        .select("title, ciphertext, iv, salt, updated_at, is_collaborative");
+        .select("title, ciphertext, iv, salt, updated_at, is_collaborative, user_id");
 
       if (roomId) {
         query = query.eq("room_id", roomId);
@@ -468,7 +469,7 @@ export default function Notes({ roomId }: NotesProps) {
           const secretKey = roomId ?? user.id;
           const encrypted = await encrypt("", secretKey);
           const { error } = await supabase.from("notes").insert({
-            user_id: roomId ? null : user.id,
+            user_id: user.id,
             room_id: roomId ?? null,
             title: placeholderPath,
             ciphertext: encrypted.ciphertext,
@@ -528,7 +529,7 @@ export default function Notes({ roomId }: NotesProps) {
           };
 
           const { error } = await supabase.from("notes").insert({
-            user_id: roomId ? null : user.id,
+            user_id: user.id,
             room_id: roomId ?? null,
             title: trimmedName,
             ciphertext: encrypted.ciphertext,
@@ -786,6 +787,10 @@ export default function Notes({ roomId }: NotesProps) {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         itemCounts={itemCounts}
+        isItemEditable={(path) => {
+          const note = supabaseNotes?.find(n => n.title === path);
+          return note ? (!note.user_id || note.user_id === user?.id) : true;
+        }}
       />
 
       <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden bg-gray-700">
@@ -853,6 +858,11 @@ export default function Notes({ roomId }: NotesProps) {
                 Room Notes
               </div>
             )}
+            {currentFile && supabaseNotes?.find(n => n.title === currentFile)?.user_id && supabaseNotes.find(n => n.title === currentFile)?.user_id !== user?.id && (
+              <div className="bg-red-600/20 text-red-300 px-3 py-1 rounded-full text-sm font-medium border border-red-600/30">
+                Read Only
+              </div>
+            )}
           </div>
         </div>
 
@@ -887,10 +897,17 @@ export default function Notes({ roomId }: NotesProps) {
                     initialContent={text}
                     onUpdate={handleTextUpdate}
                     isFullScreen={isFullScreen}
+                    readOnly={!!(supabaseNotes?.find(n => n.title === currentFile)?.user_id && supabaseNotes?.find(n => n.title === currentFile)?.user_id !== user?.id)}
                     key={currentFile}
                   />
                 ) : (
-                  <Editor content={text} onUpdate={handleTextUpdate} isFullScreen={isFullScreen} key={currentFile} />
+                  <Editor 
+                    content={text} 
+                    onUpdate={handleTextUpdate} 
+                    isFullScreen={isFullScreen} 
+                    readOnly={!!(supabaseNotes?.find(n => n.title === currentFile)?.user_id && supabaseNotes?.find(n => n.title === currentFile)?.user_id !== user?.id)}
+                    key={currentFile} 
+                  />
                 )}
               </div>
 

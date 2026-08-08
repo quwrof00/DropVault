@@ -30,7 +30,8 @@ function TiptapEditor({
  fileName,
  onCopy,
  onUpdate,
- isFullScreen
+ isFullScreen,
+ readOnly
 }: {
  provider: WebsocketProvider;
  doc: Y.Doc;
@@ -40,6 +41,7 @@ function TiptapEditor({
  onCopy: (text: string) => void;
  onUpdate: (content: string) => void;
  isFullScreen?: boolean;
+ readOnly?: boolean;
 }) {
  const [copied, setCopied] = useState(false);
  const [isSynced, setIsSynced] = useState(false);
@@ -79,6 +81,7 @@ function TiptapEditor({
  }, [provider]);
 
  const editor = useEditor({
+ editable: !readOnly,
  extensions: [
  StarterKit.configure({
  history: false, // History is handled by Yjs
@@ -131,6 +134,7 @@ function TiptapEditor({
  return (
  <div className="editor-wrapper flex flex-col h-full">
  {/* Toolbar */}
+ {!readOnly && (
  <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md justify-between">
  <div className="flex items-center gap-1">
  <button
@@ -247,6 +251,7 @@ function TiptapEditor({
  </button>
  </div>
  </div>
+ )}
 
  {/* Editor Area */}
  <div className="flex-1 overflow-auto bg-gray-800/50 p-2">
@@ -266,13 +271,15 @@ export default function CollabEditor({
  fileName,
  initialContent,
  onUpdate,
- isFullScreen
+ isFullScreen,
+ readOnly
 }: {
  roomId: string;
  fileName: string;
  initialContent?: string;
  onUpdate: (content: string) => void;
  isFullScreen?: boolean;
+ readOnly?: boolean;
 }) {
  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
  const [doc, setDoc] = useState<Y.Doc | null>(null);
@@ -322,6 +329,7 @@ export default function CollabEditor({
  onCopy={handleCopy}
  onUpdate={onUpdate}
  isFullScreen={isFullScreen}
+ readOnly={readOnly}
  />
  );
 }

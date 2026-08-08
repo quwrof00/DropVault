@@ -8,6 +8,7 @@ interface EditorProps {
   content: string;
   onUpdate: (updatedContent: string) => void;
   isFullScreen?: boolean;
+  readOnly?: boolean;
 }
 
 interface CopyProps {
@@ -48,7 +49,7 @@ const modules = {
   ],
 };
 
-export default function Editor({ content, onUpdate, isFullScreen }: EditorProps) {
+export default function Editor({ content, onUpdate, isFullScreen, readOnly }: EditorProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -82,10 +83,11 @@ export default function Editor({ content, onUpdate, isFullScreen }: EditorProps)
       </div>
 
       <ReactQuill 
-        theme="snow" 
-        value={content || ''} 
-        onChange={onUpdate} 
-        modules={modules}
+        theme="snow"
+        value={content}
+        onChange={readOnly ? undefined : onUpdate}
+        readOnly={readOnly}
+        modules={readOnly ? { toolbar: false } : modules}
         className="h-full flex flex-col flex-1 text-gray-100"
       />
     </div>

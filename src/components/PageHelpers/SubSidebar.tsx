@@ -16,6 +16,7 @@ interface SidebarProps {
  typeLabel: string;
  isCreating: boolean;
  itemCounts?: { [key: string]: number }; // Optional counts
+ isItemEditable?: (path: string) => boolean; // Determines if edit/delete is allowed
 
  // New props for mobile control
  isOpen?: boolean; // Controlled by parent on mobile
@@ -43,6 +44,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  typeLabel,
  isCreating,
  itemCounts = {}, // Default empty
+ isItemEditable,
  isOpen = false, // Default closed on mobile if not specified
  onClose
 }) => {
@@ -200,8 +202,12 @@ const SubSidebar: React.FC<SidebarProps> = ({
  <Plus size={14} />
  </button>
  )}
- <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
- <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+ {(!isItemEditable || isItemEditable(node.fullPath)) && (
+   <>
+     <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
+     <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+   </>
+ )}
  </div>
  )}
  </div>
@@ -232,8 +238,12 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
  {(isDesktopOpen || window.innerWidth < 768) && (
  <div className="flex gap-2 opacity-0 group-hover:opacity-100">
- <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
- <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+ {(!isItemEditable || isItemEditable(node.fullPath)) && (
+   <>
+     <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
+     <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+   </>
+ )}
  </div>
  )}
  </div>
