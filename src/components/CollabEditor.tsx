@@ -6,6 +6,7 @@ import Collaboration from'@tiptap/extension-collaboration';
 import CollaborationCursor from'@tiptap/extension-collaboration-cursor';
 import * as Y from'yjs';
 import { WebsocketProvider } from'y-websocket';
+import { Bold, Italic, Underline as UnderlineIcon, Pilcrow, List } from 'lucide-react';
 import'./Editor/editor.css';
 
 const ClipboardIcon = ({ copied }: { copied: boolean }) => (
@@ -132,41 +133,35 @@ function TiptapEditor({
  }
 
  return (
- <div className="editor-wrapper flex flex-col h-full">
+ <div className="editor-wrapper flex flex-col h-full w-full">
  {/* Toolbar */}
  {!readOnly && (
- <div className="flex flex-wrap items-center gap-2 p-2 relative z-20 bg-gray-800 border-b border-gray-700/50 rounded-t-lg backdrop-blur-sm shadow-md justify-between">
+ <div className="flex flex-wrap items-center gap-1.5 pb-3 mb-3 border-b border-gray-700/50 justify-between">
  <div className="flex items-center gap-1">
  <button
  onClick={() => editor.chain().focus().toggleBold().run()}
- className={`p-1.5 rounded-md font-medium ${editor.isActive('bold')
- ?'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
- :'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+ className={`p-1.5 rounded-md transition-colors ${editor.isActive('bold')
+ ?'bg-blue-500/20 text-blue-400 '
+ :'text-gray-400 hover:bg-gray-700/50 hover:text-white hover:text-gray-200'
  }`}
  title="Bold"
- >
- B
- </button>
+ ><Bold size={16} strokeWidth={2.5} /></button>
  <button
  onClick={() => editor.chain().focus().toggleItalic().run()}
- className={`p-1.5 rounded-md italic font-serif ${editor.isActive('italic')
- ?'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
- :'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+ className={`p-1.5 rounded-md transition-colors ${editor.isActive('italic')
+ ?'bg-blue-500/20 text-blue-400 '
+ :'text-gray-400 hover:bg-gray-700/50 hover:text-white hover:text-gray-200'
  }`}
  title="Italic"
- >
- I
- </button>
+ ><Italic size={16} strokeWidth={2.5} /></button>
  <button
  onClick={() => editor.chain().focus().toggleUnderline().run()}
- className={`p-1.5 rounded-md underline underline-offset-2 ${editor.isActive('underline')
- ?'bg-blue-500/20 text-blue-400 shadow-sm border border-blue-500/20'
- :'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+ className={`p-1.5 rounded-md transition-colors ${editor.isActive('underline')
+ ?'bg-blue-500/20 text-blue-400 '
+ :'text-gray-400 hover:bg-gray-700/50 hover:text-white hover:text-gray-200'
  }`}
  title="Underline"
- >
- U
- </button>
+ ><UnderlineIcon size={16} strokeWidth={2.5} /></button>
 
  <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -177,9 +172,7 @@ function TiptapEditor({
  :'text-gray-400 hover:bg-gray-700 hover:text-gray-200'
  }`}
  title="Paragraph"
- >
- ¶
- </button>
+ ><Pilcrow size={16} /></button>
  <select
  onChange={(e) => {
  const level = parseInt(e.target.value, 10);
@@ -195,7 +188,7 @@ function TiptapEditor({
  editor.isActive('heading', { level: 3 }) ?'3' :
 '0'
  }
- className='p-1.5 rounded-md border border-gray-600 bg-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500'
+ className='p-1 rounded bg-transparent text-gray-300 text-sm focus:outline-none cursor-pointer hover:text-white hover:bg-gray-700/50 transition-colors border-none'
  >
  <option value="0">Normal</option>
  <option value="1">Heading 1</option>
@@ -213,7 +206,7 @@ function TiptapEditor({
  }`}
  title="Bullet List"
  >
- <span className="text-lg leading-none">•</span> List
+ <List size={18} />
  </button>
  </div>
 
@@ -254,11 +247,11 @@ function TiptapEditor({
  )}
 
  {/* Editor Area */}
- <div className="flex-1 overflow-auto bg-gray-800/50 p-2">
+ <div className="flex-1 overflow-auto bg-transparent px-2">
  <EditorContent editor={editor} className="min-h-full editor-box text-gray-100" />
  </div>
 
- <div className="p-2 text-xs text-gray-500 border-t border-gray-700 mt-auto flex justify-between">
+ <div className="text-[10px] text-gray-500 mt-2 flex justify-between opacity-50 px-2">
  <span>Room: {roomId}</span>
  <span>File: {fileName}</span>
  </div>

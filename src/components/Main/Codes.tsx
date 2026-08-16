@@ -27,6 +27,14 @@ type CodesProps = {
  roomId?: string | null;
 };
 
+
+
+const parseSnippetId = (id: string) => {
+  const i = id.indexOf(':');
+  if (i === -1) return { userId: 'private', title: id };
+  return { userId: id.slice(0, i), title: id.slice(i + 1) };
+};
+
 export default function Codes({ roomId }: CodesProps) {
  const user = useAuthUser();
  const navigate = useNavigate();
@@ -282,7 +290,7 @@ export default function Codes({ roomId }: CodesProps) {
  const closeDialog = () => setDialog(prev => ({ ...prev, isOpen: false }));
 
  const showAlert = (message: string) => {
- setDialog({
+          setDialog({
  isOpen: true,
  title:"Alert",
  message,
@@ -471,7 +479,7 @@ export default function Codes({ roomId }: CodesProps) {
  .from("codes")
  .update({ language })
  .eq("user_id", user.id)
- .eq("title", currentTitle);
+ .eq("title", parseSnippetId(currentTitle).title);
 
  // Add room condition based on roomId
  if (roomId) {
@@ -498,9 +506,20 @@ export default function Codes({ roomId }: CodesProps) {
     scheduleSave();
   };
 
- const filteredSnippets = Object.keys(snippets)
- .filter((title) => title.toLowerCase().includes(search.toLowerCase()))
- .sort((a, b) => a.localeCompare(b));
+  const filteredSnippets = Object.keys(snippets)
+    .filter((id) => {
+      const parsed = parseSnippetId(id);
+      return parsed.title.toLowerCase().includes(search.toLowerCase());
+    })
+    .sort((a, b) => {
+      const parsedA = parseSnippetId(a);
+      const parsedB = parseSnippetId(b);
+      return parsedA.title.localeCompare(parsedB.title);
+    })
+    .map(id => {
+      const parsed = parseSnippetId(id);
+      return { id, path: parsed.title, name: parsed.title };
+    });
 
  return (
  <div className="flex flex-col md:flex-row h-full bg-gray-700 rounded-lg shadow-lg overflow-hidden relative">

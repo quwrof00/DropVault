@@ -2,64 +2,71 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Plus, Search, Pencil, Trash2, Folder, File, ChevronRight, ChevronDown, FolderPlus, FileText } from "lucide-react";
 import { useIntersectionObserver } from "../../hooks/useIntersectionObserver";
 
+export interface SidebarItem {
+  id: string;
+  path: string;
+  name?: string;
+}
+
 interface SidebarProps {
  search: string;
  setSearch: (value: string) => void;
- items: string[];
+ items: SidebarItem[];
  onCreate: (path?: string) => void; // Updated to accept optional path
  onCreateFolder?: () => void;
- onSelect: (name: string) => void;
- onRename: (name: string) => void;
- onDelete: (name: string) => void;
+ onSelect: (id: string) => void;
+ onRename: (id: string) => void;
+ onDelete: (id: string) => void;
  onCreateFileInFolder?: (folderPath: string) => void;
- currentItem: string;
+ currentItem: string; // id
  typeLabel: string;
  isCreating: boolean;
  itemCounts?: { [key: string]: number }; // Optional counts
- isItemEditable?: (path: string) => boolean; // Determines if edit/delete is allowed
-
- // New props for mobile control
- isOpen?: boolean; // Controlled by parent on mobile
- onClose?: () => void; // To close the sidebar
+  isItemEditable?: (id: string) => boolean; // Determines if edit/delete is allowed
+  getItemBadge?: (id: string) => { text: string; colorClass: string } | undefined;
+  isOpen?: boolean; // Controlled by parent on mobile
+  onClose?: () => void; // To close the sidebar
 }
 
 interface TreeNode {
- name: string;
- fullPath: string;
- type:'file' |'folder';
- children?: TreeNode[];
+  id: string;
+  name: string;
+  fullPath: string;
+  type: 'file' | 'folder';
+  children?: TreeNode[];
 }
 
 const SubSidebar: React.FC<SidebarProps> = ({
- search,
- setSearch,
- items,
- onCreate,
- onCreateFolder,
- onSelect,
- onRename,
- onDelete,
- onCreateFileInFolder,
- currentItem,
- typeLabel,
- isCreating,
- itemCounts = {}, // Default empty
- isItemEditable,
- isOpen = false, // Default closed on mobile if not specified
- onClose
+  search,
+  setSearch,
+  items,
+  onCreate,
+  onCreateFolder,
+  onSelect,
+  onRename,
+  onDelete,
+  onCreateFileInFolder,
+  currentItem,
+  typeLabel,
+  isCreating,
+  itemCounts = {}, // Default empty
+  isItemEditable,
+  getItemBadge,
+  isOpen = false, // Default closed on mobile if not specified
+  onClose
 }) => {
- const [isDesktopOpen, setIsDesktopOpen] = useState(true);
- const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
- const [viewMode, setViewMode] = useState<'folders' |'files'>('folders'); //'folders' (Tree) |'files' (Stray/Root only)
- const [visibleCount, setVisibleCount] = useState(50);
+  const [isDesktopOpen, setIsDesktopOpen] = useState(true);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'folders' | 'files'>('folders'); //'folders' (Tree) | 'files' (Stray/Root only)
+  const [visibleCount, setVisibleCount] = useState(50);
 
- const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
+  const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
 
- useEffect(() => {
-   if (isIntersecting) {
-     setVisibleCount(prev => prev + 50);
-   }
- }, [isIntersecting]);
+  useEffect(() => {
+    if (isIntersecting) {
+      setVisibleCount(prev => prev + 50);
+    }
+  }, [isIntersecting]);
 
  useEffect(() => {
    setVisibleCount(50);
@@ -73,10 +80,10 @@ const SubSidebar: React.FC<SidebarProps> = ({
  // Filter items based on view mode and search
  const filteredItems = items.filter(item => {
  // Search filter
- if (!item.toLowerCase().includes(search.toLowerCase())) return false;
+ if (!item.path.toLowerCase().includes(search.toLowerCase())) return false;
 
  // View mode filter
- const isRootFile = !item.includes('/');
+ const isRootFile = !item.path.includes('/');
  if (viewMode ==='files' && !isRootFile) return false;
  // For'folders' mode, we might want to hide root files?
  //"Toggle between folders and stray files" implies separation.
@@ -89,8 +96,8 @@ const SubSidebar: React.FC<SidebarProps> = ({
  });
 
  const sortedItems = [...filteredItems].sort((a, b) => {
- const aParts = a.split('/');
- const bParts = b.split('/');
+ const aParts = a.path.split('/');
+ const bParts = b.path.split('/');
  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
  if (aParts[i] !== bParts[i]) {
  return aParts[i].localeCompare(bParts[i]);
@@ -101,11 +108,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
  const itemsToRender = sortedItems.slice(0, visibleCount);
 
- itemsToRender.forEach(item => {
- const parts = item.split('/');
+ itemsToRender.forEach(itemObj => {
+ const parts = itemObj.path.split('/');
 
  if (parts.length === 1) {
- root.push({ name: parts[0], fullPath: item, type:'file' });
+ root.push({ id: itemObj.id, name: parts[0], fullPath: itemObj.path, type:'file' });
  } else {
  let currentPath ='';
  for (let i = 0; i < parts.length - 1; i++) {
@@ -114,7 +121,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  currentPath = currentPath ?`${currentPath}/${part}` : part;
 
  if (!folderMap.has(currentPath)) {
- const folderNode: TreeNode = { name: part, fullPath: currentPath, type:'folder', children: [] };
+ const folderNode: TreeNode = { id: currentPath, name: part, fullPath: currentPath, type:'folder', children: [] };
  folderMap.set(currentPath, folderNode);
  if (parentPath) {
  folderMap.get(parentPath)?.children?.push(folderNode);
@@ -125,7 +132,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  }
 
  const parentPath = parts.slice(0, -1).join('/');
- const fileNode: TreeNode = { name: parts[parts.length - 1], fullPath: item, type:'file' };
+ const fileNode: TreeNode = { id: itemObj.id, name: parts[parts.length - 1], fullPath: itemObj.path, type:'file' };
 
  if (parentPath) {
  folderMap.get(parentPath)?.children?.push(fileNode);
@@ -165,11 +172,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
  });
  }
  }
- }, [currentItem]);
+ }, [currentItem, items]);
 
  const renderTreeNode = (node: TreeNode, depth: number = 0) => {
  const isExpanded = expandedFolders.has(node.fullPath);
- const isSelected = node.fullPath === currentItem;
+ const isSelected = node.id === currentItem;
  const paddingLeft = depth * 12 + 8;
  const count = itemCounts[node.fullPath] || 0;
 
@@ -177,7 +184,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
  if (node.type ==='folder') {
  return (
- <div key={node.fullPath}>
+ <div key={node.id}>
  <div
  className="flex items-center justify-between rounded-lg px-2 py-2 group cursor-pointer hover:bg-gray-700/50 transition-colors duration-200"
  style={{ paddingLeft:`${paddingLeft}px` }}
@@ -202,10 +209,10 @@ const SubSidebar: React.FC<SidebarProps> = ({
  <Plus size={14} />
  </button>
  )}
- {(!isItemEditable || isItemEditable(node.fullPath)) && (
+ {(!isItemEditable || isItemEditable(node.id)) && (
    <>
-     <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
-     <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+     <button onClick={(e) => { e.stopPropagation(); onRename(node.id); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
+     <button onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
    </>
  )}
  </div>
@@ -218,11 +225,11 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
  return (
  <div
- key={node.fullPath}
+ key={node.id}
  className={`flex items-center justify-between rounded-lg px-2 py-2 group cursor-pointer transition-colors duration-200 ${isSelected ? 'bg-blue-600/20 shadow-[inset_2px_0_0_0_rgb(59,130,246)]' : 'hover:bg-gray-700/50'}`}
  style={{ paddingLeft:`${paddingLeft}px` }}
  onClick={() => {
- onSelect(node.fullPath);
+ onSelect(node.id);
  if (window.innerWidth < 768 && onClose) onClose();
  }}
  >
@@ -234,16 +241,22 @@ const SubSidebar: React.FC<SidebarProps> = ({
  {count > 99 ?'99+' : count}
  </span>
  )}
- </div>
+ 
+  {getItemBadge && getItemBadge(node.id) && (
+    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${getItemBadge(node.id)!.colorClass}`}>
+      {getItemBadge(node.id)!.text}
+    </span>
+  )}
+</div>
 
  {(isDesktopOpen || window.innerWidth < 768) && (
  <div className="flex gap-2 opacity-0 group-hover:opacity-100">
- {(!isItemEditable || isItemEditable(node.fullPath)) && (
-   <>
-     <button onClick={(e) => { e.stopPropagation(); onRename(node.fullPath); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
-     <button onClick={(e) => { e.stopPropagation(); onDelete(node.fullPath); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
-   </>
- )}
+ {(!isItemEditable || isItemEditable(node.id)) && (
+    <>
+      <button onClick={(e) => { e.stopPropagation(); onRename(node.id); }} className="text-yellow-500 hover:text-yellow-400"><Pencil size={14} /></button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} className="text-red-500 hover:text-red-400"><Trash2 size={14} /></button>
+    </>
+  )}
  </div>
  )}
  </div>

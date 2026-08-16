@@ -67,7 +67,7 @@ export default function Editor({ content, onUpdate, isFullScreen, readOnly }: Ed
   }
 
   return (
-    <div className="editor-wrapper flex flex-col h-full quill-dark-theme relative bg-gray-800/10 rounded-lg overflow-hidden shadow-sm">
+    <div className="editor-wrapper flex flex-col h-full quill-dark-theme relative w-full">
       <div className={`absolute top-2 z-[60] transition-all ${isFullScreen ? 'right-14' : 'right-2'}`}>
          <button
            onClick={handleCopy}

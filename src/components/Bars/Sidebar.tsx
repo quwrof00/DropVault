@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase-client";
 import { useAuth } from "../../context/AuthContext";
 import { Image, Folder, FileText, Code, Box, X, ChevronDown, User, Eye, EyeOff, Copy, Check } from "lucide-react";
+import { getUserColorClasses } from "../../lib/colors";
 
 type RoomUser = {
     id: string;
@@ -281,7 +282,7 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
                                                 key={member.id}
                                                 className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-gray-800/30 group"
                                             >
-                                                <div className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 border border-gray-700/50 group-hover:border-gray-600">
+                                                <div className={`w-7 h-7 rounded-full flex items-center justify-center border group-hover:border-gray-600 ${getUserColorClasses(member.id).bgSoft} ${getUserColorClasses(member.id).text} ${getUserColorClasses(member.id).border}`}>
                                                     <User size={14} />
                                                 </div>
                                                 <span className="text-sm text-gray-400 truncate max-w-[140px]" title={member.email}>
