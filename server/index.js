@@ -29,12 +29,16 @@ async function startKafka() {
       console.log(`✅ Created Kafka topics: ${topicsToCreate.map(t => t.topic).join(', ')}`);
     }
     await admin.disconnect();
+  } catch (err) {
+    console.error('⚠️ Failed to perform Kafka admin operations (This is normal in managed Kafka if topics are pre-created).', err.message);
+  }
 
+  try {
     await initProducer();
     await initConsumer();
     await initImageConsumer();
   } catch (err) {
-    console.error('⚠️ Failed to connect to Kafka. Ensure Docker container is running.', err);
+    console.error('⚠️ Failed to initialize Kafka producer/consumers.', err);
   }
 }
 
