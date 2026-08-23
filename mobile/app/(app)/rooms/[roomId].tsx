@@ -3,9 +3,9 @@ import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, FileText, Folder, Image as ImageIcon, Plus, ChevronDown, ChevronRight } from "lucide-react-native";
-import { NotesContent } from "../../(tabs)/notes";
-import { FilesContent } from "../../(tabs)/files";
-import { ImagesContent } from "../../(tabs)/images";
+import { NotesContent } from "../(tabs)/notes";
+import { FilesContent } from "../(tabs)/files";
+import { ImagesContent } from "../(tabs)/images";
 import { supabase } from "../../../lib/supabase";
 
 type Section = "Notes" | "Files" | "Images";
