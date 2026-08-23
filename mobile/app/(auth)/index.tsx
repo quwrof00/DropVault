@@ -3,43 +3,10 @@ import { StatusBar } from "expo-status-bar";
 import { Text, View, Pressable, ActivityIndicator, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export default function WelcomeScreen() {
     const router = useRouter();
-    const [checkingSession, setCheckingSession] = useState(true);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const checkSession = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (!isMounted) return;
-
-            if (data.session) {
-                router.replace("/(tabs)");
-                return;
-            }
-
-            setCheckingSession(false);
-        };
-
-        checkSession();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [router]);
-
-    if (checkingSession) {
-        return (
-            <SafeAreaView className="flex-1 bg-slate-900">
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#60a5fa" />
-                </View>
-            </SafeAreaView>
-        );
-    }
 
     return (
         <SafeAreaView className="flex-1 bg-slate-900">

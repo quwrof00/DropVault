@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { View, Text, FlatList, Pressable, RefreshControl, Alert, ActivityIndicator, TextInput, Modal, ScrollView, Share } from "react-native";
+import { View, Text, FlatList, Pressable, RefreshControl, Alert, ActivityIndicator, TextInput, Modal, ScrollView, Share, Switch } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
     FileText,
@@ -14,10 +14,10 @@ import {
     EllipsisVertical,
     Plus,
 } from "lucide-react-native";
-import ScreenHeader from "../../components/ScreenHeader";
-import { useItemCounts } from "../../lib/useItemCounts";
+import ScreenHeader from "../../../components/ScreenHeader";
+import { useItemCounts } from "../../../lib/useItemCounts";
 import * as Clipboard from "expo-clipboard";
-import ScreenCrashBoundary from "../../components/ScreenCrashBoundary";
+import ScreenCrashBoundary from "../../../components/ScreenCrashBoundary";
 
 type Note = {
     title: string;
@@ -88,6 +88,11 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
     const [search, setSearch] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>("folders");
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+    const [visibleCount, setVisibleCount] = useState(24);
+
+    useEffect(() => {
+        setVisibleCount(24);
+    }, [search]);
 
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [modalMode, setModalMode] = useState<ModalMode>("create-note");
@@ -96,6 +101,7 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
     const [creating, setCreating] = useState(false);
     const [isActionModalVisible, setIsActionModalVisible] = useState(false);
     const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+    const [isCollaborative, setIsCollaborative] = useState(false);
     const [selectedActionItem, setSelectedActionItem] = useState<{ path: string; type: "file" | "folder" } | null>(null);
     const itemCounts = useItemCounts(roomId, "note");
 
@@ -266,10 +272,11 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
         setModalTargetPath(null);
     };
 
-    const openCreateNoteModal = (folderPath?: string) => {
+    const openCreateNoteModal = (parentPath: string = "") => {
         setModalMode("create-note");
-        setModalTargetPath(folderPath || null);
-        setModalValue(folderPath ? `${folderPath}/` : "");
+        setModalTargetPath(parentPath || null);
+        setModalValue(parentPath ? `${parentPath}/` : "");
+        setIsCollaborative(false);
         setIsModalVisible(true);
     };
 
@@ -311,7 +318,7 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { encrypt } = await import("../../lib/crypto-safe");
+            const { encrypt } = await import("../../../lib/crypto-safe");
             const encrypted = await encrypt("", user.id);
             const placeholderPath = `${fullPath}/.placeholder`;
 
@@ -351,7 +358,7 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
             closeModal();
             router.push({
                 pathname: "/note_editor",
-                params: { title, isNew: "true", ...(roomId ? { roomId } : {}) }
+                params: { title, isNew: "true", ...(roomId ? { roomId, isCollaborative: isCollaborative.toString() } : {}) }
             });
         } catch (error: any) {
             Alert.alert("Error", error.message);
@@ -513,7 +520,7 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
         const { data, error } = await query.single();
         if (error) throw error;
 
-        const { decrypt } = await import("../../lib/crypto-safe");
+        const { decrypt } = await import("../../../lib/crypto-safe");
         const decrypted = await decrypt({
             ciphertext: data.ciphertext,
             iv: data.iv,
@@ -787,7 +794,7 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
                 </View>
             ) : viewMode === "files" ? (
                 <FlatList
-                    data={strayFiles}
+                    data={strayFiles.slice(0, visibleCount)}
                     renderItem={renderStrayFile}
                     keyExtractor={(item) => item.title}
                     showsVerticalScrollIndicator={false}
@@ -802,6 +809,8 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
                         />
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
+                    onEndReached={() => setVisibleCount((prev) => prev + 24)}
+                    onEndReachedThreshold={0.5}
                 />
             ) : (
                 <ScrollView
@@ -910,6 +919,21 @@ export function NotesContent({ roomId, embedded = false, registerAddAction }: No
                                 autoCapitalize="none"
                             />
                         </View>
+
+                        {modalMode === "create-note" && roomId && (
+                            <View className="flex-row items-center justify-between bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 mb-6">
+                                <View className="flex-1 mr-4">
+                                    <Text className="text-white font-semibold mb-1">Collaborative Note</Text>
+                                    <Text className="text-slate-400 text-xs">Allow others in this room to edit</Text>
+                                </View>
+                                <Switch
+                                    value={isCollaborative}
+                                    onValueChange={setIsCollaborative}
+                                    trackColor={{ false: "#334155", true: "#2563eb" }}
+                                    thumbColor={isCollaborative ? "#ffffff" : "#94a3b8"}
+                                />
+                            </View>
+                        )}
 
                         <View className="flex-row gap-3">
                             <Pressable

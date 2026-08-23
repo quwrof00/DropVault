@@ -1,16 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, FlatList, Pressable, RefreshControl, Alert, ActivityIndicator, Image as RNImage, Modal, TextInput, Share } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
-import { Image as ImageIcon, Trash2, X, MessageCircle } from "lucide-react-native";
-import ScreenHeader from "../../components/ScreenHeader";
+import { supabase } from "../../../lib/supabase";
+import { Image as ImageIcon, Trash2, X, MessageCircle, Pencil } from "lucide-react-native";
+import ScreenHeader from "../../../components/ScreenHeader";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useItemCounts } from "../../lib/useItemCounts";
-import ItemDiscussion from "../../components/ItemDiscussion";
+import { useItemCounts } from "../../../lib/useItemCounts";
+import ItemDiscussion from "../../../components/ItemDiscussion";
 import * as Clipboard from "expo-clipboard";
-import { base64ToUint8Array } from "../../lib/base64";
+import { base64ToUint8Array } from "../../../lib/base64";
 
 type ImageEntry = {
     name: string;
@@ -43,8 +43,15 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
     const [selectedImage, setSelectedImage] = useState<ImageEntry | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
+    const [visibleCount, setVisibleCount] = useState(24);
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [newName, setNewName] = useState("");
     const autoUploadTriggeredRef = useRef(false);
     const itemCounts = useItemCounts(roomId, "image");
+
+    useEffect(() => {
+        setVisibleCount(24);
+    }, [searchQuery]);
 
     const fetchImages = async () => {
         try {
@@ -169,6 +176,45 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
                 }
             ]
         );
+    };
+
+    const handleRename = async () => {
+        if (!selectedImage || !newName.trim() || newName.trim() === selectedImage.name) {
+            setIsRenaming(false);
+            return;
+        }
+
+        const oldName = selectedImage.name;
+        const newFileName = newName.trim();
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const prefix = roomId ? `room-${roomId}` : user.id;
+            
+            const oldExtIndex = oldName.lastIndexOf(".");
+            const oldExt = oldExtIndex !== -1 ? oldName.slice(oldExtIndex) : "";
+            const newExtIndex = newFileName.lastIndexOf(".");
+            const finalName = newExtIndex !== -1 ? newFileName : newFileName + oldExt;
+
+            const { error } = await supabase.storage
+                .from(BUCKET)
+                .move(`${prefix}/${oldName}`, `${prefix}/${finalName}`);
+
+            if (error) throw error;
+
+            const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(`${prefix}/${finalName}`).data.publicUrl;
+            
+            const updatedImage = { ...selectedImage, name: finalName, url: `${publicUrl}?t=${Date.now()}` };
+            setImages(prev => prev.map(img => 
+                img.id === selectedImage.id ? updatedImage : img
+            ));
+            setSelectedImage(updatedImage);
+            setIsRenaming(false);
+        } catch (error: any) {
+            Alert.alert("Error", error.message);
+        }
     };
 
     const renderItem = ({ item }: { item: ImageEntry }) => (
@@ -307,7 +353,7 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
                 </View>
             ) : (
                 <FlatList
-                    data={filteredImages}
+                    data={filteredImages.slice(0, visibleCount)}
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
                     numColumns={3}
@@ -319,6 +365,8 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
                         }} tintColor="#fff" />
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
+                    onEndReached={() => setVisibleCount(prev => prev + 24)}
+                    onEndReachedThreshold={0.5}
                 />
             )}
 
@@ -347,9 +395,36 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
                                     className="w-full flex-1"
                                     resizeMode="contain"
                                 />
-                                <Text className="text-white text-lg font-medium mt-4 text-center">
-                                    {selectedImage.name}
-                                </Text>
+                                {isRenaming ? (
+                                    <View className="w-full flex-row items-center mt-4 px-6 gap-2">
+                                        <TextInput
+                                            value={newName}
+                                            onChangeText={setNewName}
+                                            className="flex-1 bg-slate-800 text-white px-4 py-2.5 rounded-xl border border-slate-700"
+                                            autoFocus
+                                            selectTextOnFocus
+                                            onSubmitEditing={handleRename}
+                                        />
+                                        <Pressable onPress={handleRename} className="bg-blue-600 px-4 py-2.5 rounded-xl">
+                                            <Text className="text-white font-semibold">Save</Text>
+                                        </Pressable>
+                                    </View>
+                                ) : (
+                                    <View className="flex-row items-center mt-4">
+                                        <Text className="text-white text-lg font-medium text-center">
+                                            {selectedImage.name}
+                                        </Text>
+                                        <Pressable 
+                                            onPress={() => {
+                                                setNewName(selectedImage.name);
+                                                setIsRenaming(true);
+                                            }}
+                                            className="ml-2 p-1.5 bg-slate-800 rounded-md"
+                                        >
+                                            <Pencil size={14} color="#94a3b8" />
+                                        </Pressable>
+                                    </View>
+                                )}
                                 <Text className="text-slate-400 text-sm">
                                     {new Date(selectedImage.updated_at).toLocaleString()}
                                 </Text>

@@ -3,9 +3,9 @@ import { View, Text, Pressable, Modal, TextInput, ActivityIndicator, FlatList } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { DoorOpen, EllipsisVertical, Users } from "lucide-react-native";
-import ScreenHeader from "../../components/ScreenHeader";
-import { useRooms, type Room } from "../../lib/useRooms";
-import { supabase } from "../../lib/supabase";
+import ScreenHeader from "../../../components/ScreenHeader";
+import { useRooms, type Room } from "../../../lib/useRooms";
+import { supabase } from "../../../lib/supabase";
 
 const randomCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
@@ -92,8 +92,8 @@ export default function RoomsScreen() {
                 onPress={() => router.push({ pathname: "/rooms/[roomId]", params: { roomId: item.id, roomName: item.name } })}
                 className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 mb-3 flex-row items-center"
             >
-                <View className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-600/20 items-center justify-center mr-4">
-                    <Users size={22} color="#60a5fa" />
+                <View className="w-12 h-12 rounded-xl bg-blue-600 items-center justify-center mr-4 shadow-sm shadow-blue-600/20">
+                    <Users size={22} color="white" />
                 </View>
                 <View className="flex-1">
                     <Text className="text-white text-lg font-semibold" numberOfLines={1}>{item.name}</Text>

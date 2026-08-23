@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldCheck, ChevronRight } from "lucide-react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export default function LoginScreen() {
     const router = useRouter();

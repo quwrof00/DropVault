@@ -3,9 +3,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { FileText, Folder, Image as ImageIcon, Plus, DoorOpen, Users, EllipsisVertical } from "lucide-react-native";
 import { useState, useCallback, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useRooms, type Room } from "../../lib/useRooms";
+import { useRooms, type Room } from "../../../lib/useRooms";
 
 const randomCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
@@ -113,7 +113,7 @@ export default function Dashboard() {
                     throw new Error("A note with this name already exists.");
                 }
 
-                const { encrypt } = await import("../../lib/crypto-safe");
+                const { encrypt } = await import("../../../lib/crypto-safe");
                 const encrypted = await encrypt("", user.id);
                 const { error } = await supabase.from("notes").insert({
                     user_id: user.id,
@@ -239,8 +239,8 @@ export default function Dashboard() {
                                     onPress={() => router.push({ pathname: "/rooms/[roomId]", params: { roomId: item.id, roomName: item.name } })}
                                     className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 mb-3 flex-row items-center"
                                 >
-                                    <View className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-600/20 items-center justify-center mr-4">
-                                        <Users size={22} color="#60a5fa" />
+                                    <View className="w-12 h-12 rounded-xl bg-blue-600 items-center justify-center mr-4 shadow-sm shadow-blue-600/20">
+                                        <Users size={22} color="white" />
                                     </View>
                                     <View className="flex-1">
                                         <Text className="text-white text-lg font-semibold" numberOfLines={1}>{item.name}</Text>

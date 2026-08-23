@@ -1,16 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, FlatList, Pressable, RefreshControl, Alert, ActivityIndicator, Modal, TextInput, Linking, Share } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { FileText, Image as ImageIcon, Film, Music, Code, Box, File as FileIcon, EllipsisVertical, MessageCircle } from "lucide-react-native";
-import ScreenHeader from "../../components/ScreenHeader";
+import ScreenHeader from "../../../components/ScreenHeader";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useItemCounts } from "../../lib/useItemCounts";
-import ItemDiscussion from "../../components/ItemDiscussion";
+import { useItemCounts } from "../../../lib/useItemCounts";
+import ItemDiscussion from "../../../components/ItemDiscussion";
 import * as Clipboard from "expo-clipboard";
-import { base64ToUint8Array } from "../../lib/base64";
+import { base64ToUint8Array } from "../../../lib/base64";
 
 type FileEntry = {
     name: string;
@@ -65,10 +65,15 @@ export function FilesContent({ roomId, embedded = false, registerAddAction }: Fi
     const [renameValue, setRenameValue] = useState("");
     const [renaming, setRenaming] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [visibleCount, setVisibleCount] = useState(24);
     const [expandedDiscussionFile, setExpandedDiscussionFile] = useState<string | null>(null);
     const autoUploadTriggeredRef = useRef(false);
     const storageBasePathRef = useRef<string | null>(null);
     const itemCounts = useItemCounts(roomId, "file");
+
+    useEffect(() => {
+        setVisibleCount(24);
+    }, [searchQuery]);
 
     const getStorageBasePath = async () => {
         if (storageBasePathRef.current) return storageBasePathRef.current;
@@ -418,7 +423,7 @@ export function FilesContent({ roomId, embedded = false, registerAddAction }: Fi
                 </View>
             ) : (
                 <FlatList
-                    data={filteredFiles}
+                    data={filteredFiles.slice(0, visibleCount)}
                     renderItem={renderItem}
                     keyExtractor={item => item.id}
                     showsVerticalScrollIndicator={false}
@@ -429,6 +434,8 @@ export function FilesContent({ roomId, embedded = false, registerAddAction }: Fi
                         }} tintColor="#fff" />
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
+                    onEndReached={() => setVisibleCount(prev => prev + 24)}
+                    onEndReachedThreshold={0.5}
                 />
             )}
 

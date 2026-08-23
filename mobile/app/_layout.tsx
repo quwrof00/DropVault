@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
-import { useEffect } from "react";
+import { AuthProvider } from "../contexts/AuthContext";
 import "../global.css"
 
 export default function RootLayout() {
@@ -10,19 +10,20 @@ export default function RootLayout() {
     });
 
     return (
-        <Stack
-            screenOptions={{
-                headerShown: false,
-                animation: "fade",
-                contentStyle: {
-                    flex: 1,
-                    backgroundColor: "#020617",
-                    paddingHorizontal: 12,
-                    paddingTop: 12,
-                },
-            }}
-        >
-            <Stack.Screen name="index" />
-        </Stack>
+        <AuthProvider>
+            <Stack
+                screenOptions={{
+                    headerShown: false,
+                    animation: "fade",
+                    contentStyle: {
+                        flex: 1,
+                        backgroundColor: "#020617",
+                    },
+                }}
+            >
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(app)" />
+            </Stack>
+        </AuthProvider>
     );
 }
