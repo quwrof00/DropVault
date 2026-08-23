@@ -6,7 +6,7 @@ import { ChevronLeft, FileText, Folder, Image as ImageIcon, Plus, ChevronDown, C
 import { NotesContent } from "../(tabs)/notes";
 import { FilesContent } from "../(tabs)/files";
 import { ImagesContent } from "../(tabs)/images";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 
 type Section = "Notes" | "Files" | "Images";
 type RoomMember = {

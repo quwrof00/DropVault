@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, UserPlus, ChevronRight } from "lucide-react-native";
 import { StatusBar } from "expo-status-bar";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export default function RegisterScreen() {
     const router = useRouter();
