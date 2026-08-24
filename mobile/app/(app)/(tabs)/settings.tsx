@@ -165,31 +165,25 @@ export default function SettingsScreen() {
                 {/* Info Rows */}
                 <View className="space-y-4">
                     <View className="flex-row items-center justify-between p-3 bg-slate-800/50 rounded-xl">
-                        <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center gap-3 flex-1">
                             <View className="w-8 h-8 rounded-full bg-blue-500/10 items-center justify-center">
                                 <Mail size={16} color="#60a5fa" />
                             </View>
-                            <View>
-                      
-                                     <Text className="text-slate-400 text-xs">Email Address</Text>
-                     
-                    
-                               
-                        
-                                <Text className="text-slate-200 text-sm">{user?.email}</Text>
+                            <View className="flex-1">
+                                <Text className="text-slate-400 text-xs">Email Address</Text>
+                                <Text className="text-slate-200 text-sm" numberOfLines={1}>{user?.email}</Text>
                             </View>
                         </View>
-                        
                     </View>
 
                     <View className="flex-row items-center justify-between p-3 bg-slate-800/50 rounded-xl">
-                        <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center gap-3 flex-1">
                             <View className="w-8 h-8 rounded-full bg-purple-500/10 items-center justify-center">
                                 <User size={16} color="#c084fc" />
                             </View>
-                            <View>
+                            <View className="flex-1">
                                 <Text className="text-slate-400 text-xs">User ID</Text>
-                                <Text className="text-slate-500 text-[10px] font-mono">{user?.id}</Text>
+                                <Text className="text-slate-500 text-[10px] font-mono" numberOfLines={1}>{user?.id}</Text>
                             </View>
                         </View>
                     </View>
