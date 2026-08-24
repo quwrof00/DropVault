@@ -486,7 +486,9 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
                                         <ItemDiscussion itemId={selectedImage.name} itemType="image" roomId={roomId} />
                                     </View>
                                 )}
-                            </View>
+                            </>
+                        )}
+                    </View>
                         )}
                     </SafeAreaView>
                 </View>
