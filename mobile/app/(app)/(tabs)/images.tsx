@@ -46,6 +46,7 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
     const [visibleCount, setVisibleCount] = useState(24);
     const [isRenaming, setIsRenaming] = useState(false);
     const [newName, setNewName] = useState("");
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const autoUploadTriggeredRef = useRef(false);
     const itemCounts = useItemCounts(roomId, "image");
 
@@ -379,71 +380,74 @@ export function ImagesContent({ roomId, embedded = false, registerAddAction }: I
             >
                 <View className="flex-1 bg-black/90 justify-center items-center p-4">
                     <SafeAreaView className="w-full h-full">
-                        <View className="flex-row justify-end p-2 z-10">
-                            <Pressable
-                                onPress={() => setSelectedImage(null)}
-                                className="p-2 bg-slate-800/50 rounded-full"
-                            >
-                                <X size={24} color="white" />
-                            </Pressable>
-                        </View>
+                        {!isFullScreen && (
+                            <View className="flex-row justify-end p-2 z-10 absolute top-0 right-0 pt-12">
+                                <Pressable
+                                    onPress={() => setSelectedImage(null)}
+                                    className="p-2 bg-slate-800/50 rounded-full"
+                                >
+                                    <X size={24} color="white" />
+                                </Pressable>
+                            </View>
+                        )}
 
                         {selectedImage && (
                             <View className="flex-1 justify-center items-center pb-8">
-                                <RNImage
-                                    source={{ uri: selectedImage.url }}
-                                    className="w-full flex-1"
-                                    resizeMode="contain"
-                                />
-                                {isRenaming ? (
-                                    <View className="w-full flex-row items-center mt-4 px-6 gap-2">
-                                        <TextInput
-                                            value={newName}
-                                            onChangeText={setNewName}
-                                            className="flex-1 bg-slate-800 text-white px-4 py-2.5 rounded-xl border border-slate-700"
-                                            autoFocus
-                                            selectTextOnFocus
-                                            onSubmitEditing={handleRename}
-                                        />
-                                        <Pressable onPress={handleRename} className="bg-blue-600 px-4 py-2.5 rounded-xl">
-                                            <Text className="text-white font-semibold">Save</Text>
-                                        </Pressable>
-                                    </View>
-                                ) : (
-                                    <View className="flex-row items-center mt-4">
-                                        <Text className="text-white text-lg font-medium text-center">
-                                            {selectedImage.name}
+                                <Pressable className="w-full flex-1" onPress={() => setIsFullScreen(!isFullScreen)}>
+                                    <RNImage
+                                        source={{ uri: selectedImage.url }}
+                                        className="w-full h-full"
+                                        resizeMode="contain"
+                                    />
+                                </Pressable>
+                                
+                                {!isFullScreen && (
+                                    <>
+                                        {isRenaming ? (
+                                            <View className="w-full flex-row items-center mt-4 px-6 gap-2">
+                                                <TextInput
+                                                    value={newName}
+                                                    onChangeText={setNewName}
+                                                    className="flex-1 bg-slate-800 text-white px-4 py-2.5 rounded-xl border border-slate-700"
+                                                    autoFocus
+                                                    selectTextOnFocus
+                                                    onSubmitEditing={handleRename}
+                                                />
+                                                <Pressable onPress={handleRename} className="bg-blue-600 px-4 py-2.5 rounded-xl">
+                                                    <Text className="text-white font-semibold">Save</Text>
+                                                </Pressable>
+                                            </View>
+                                        ) : (
+                                            <View className="flex-row items-center mt-4">
+                                                <Text className="text-white text-lg font-medium text-center">
+                                                    {selectedImage.name}
+                                                </Text>
+                                                <Pressable 
+                                                    onPress={() => {
+                                                        setNewName(selectedImage.name);
+                                                        setIsRenaming(true);
+                                                    }}
+                                                    className="ml-2 p-1.5 bg-slate-800 rounded-md"
+                                                >
+                                                    <Pencil size={14} color="#94a3b8" />
+                                                </Pressable>
+                                            </View>
+                                        )}
+                                        <Text className="text-slate-400 text-sm mt-1">
+                                            {new Date(selectedImage.updated_at).toLocaleString()}
                                         </Text>
-                                        <Pressable 
-                                            onPress={() => {
-                                                setNewName(selectedImage.name);
-                                                setIsRenaming(true);
-                                            }}
-                                            className="ml-2 p-1.5 bg-slate-800 rounded-md"
-                                        >
-                                            <Pencil size={14} color="#94a3b8" />
-                                        </Pressable>
-                                    </View>
-                                )}
-                                <Text className="text-slate-400 text-sm">
-                                    {new Date(selectedImage.updated_at).toLocaleString()}
-                                </Text>
 
-                                {roomId && (
-                                    <Pressable
-                                        onPress={() => setIsDiscussionOpen((prev) => !prev)}
-                                        className="mt-4 bg-slate-800 px-6 py-3 rounded-xl items-center justify-center flex-row"
-                                    >
-                                        <View className="relative">
-                                            <MessageCircle size={18} color="#e2e8f0" />
-                                            {(itemCounts[selectedImage.name] || 0) > 0 && (
-                                                <View className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 items-center justify-center">
-                                                    <Text className="text-white text-[10px] font-bold">
-                                                        {itemCounts[selectedImage.name] > 99 ? "99+" : itemCounts[selectedImage.name]}
-                                                    </Text>
+                                        {roomId && (
+                                            <Pressable
+                                                onPress={() => setIsDiscussionOpen((prev) => !prev)}
+                                                className="mt-4 bg-slate-800 px-6 py-3 rounded-xl items-center justify-center flex-row"
+                                            >
+                                                <View className="relative">
+                                                    <MessageCircle size={18} color="#e2e8f0" />
+                                                    {(itemCounts[selectedImage.name] || 0) > 0 && (
+                                                        <View className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border border-slate-800" />
+                                                    )}
                                                 </View>
-                                            )}
-                                        </View>
                                         <Text className="text-white font-semibold ml-2">
                                             {isDiscussionOpen ? "Hide Discussion" : "Show Discussion"}
                                         </Text>

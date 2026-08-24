@@ -3,7 +3,7 @@ import { View, Text, TextInput, ActivityIndicator, Alert, Pressable, KeyboardAvo
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { supabase } from "../../lib/supabase";
-import { ChevronLeft, Save, Check, FileText, MessageCircle, Copy, Share2 } from "lucide-react-native";
+import { ChevronLeft, Save, Check, FileText, MessageCircle, Copy, Share2, Maximize, Minimize } from "lucide-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useItemCounts } from "../../lib/useItemCounts";
 import ItemDiscussion from "../../components/ItemDiscussion";
@@ -65,6 +65,7 @@ export default function NoteEditorScreen() {
     const [error, setError] = useState<string | null>(null);
     const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
     const [isReadOnly, setIsReadOnly] = useState(false);
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
     const richText = useRef<RichEditor>(null);
     const scrollRef = useRef<ScrollView>(null);
@@ -220,58 +221,63 @@ export default function NoteEditorScreen() {
             <Stack.Screen options={{ headerShown: false }} />
 
             {/* Header */}
-            <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/50">
-                <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-800">
-                    <ChevronLeft size={24} color="#94a3b8" />
-                </Pressable>
-
-                <View className="flex-1 items-center mx-4">
-                    <Text className="text-white font-bold text-lg text-center" numberOfLines={1}>
-                        {title}
-                    </Text>
-                    <Text className="text-slate-400 text-[10px] mt-0.5 font-medium">
-                        {isReadOnly ? "Read Only" : isSaving ? "Saving..." : content === lastSavedContent ? "Saved" : "Editing"}
-                    </Text>
-                </View>
-
-                <View className="flex-row items-center gap-1 -mr-2">
-                    <Pressable onPress={handleCopy} className="p-2 active:opacity-50">
-                        <Copy size={18} color="#cbd5e1" />
+            {!isFullScreen && (
+                <View className="flex-row items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/50">
+                    <Pressable onPress={() => router.back()} className="p-2 -ml-2 rounded-full active:bg-slate-800">
+                        <ChevronLeft size={24} color="#94a3b8" />
                     </Pressable>
-                    <Pressable onPress={handleShare} className="p-2 active:opacity-50">
-                        <Share2 size={18} color="#cbd5e1" />
-                    </Pressable>
-                    {roomId && title && (
-                        <Pressable
-                            onPress={() => setIsDiscussionOpen((prev) => !prev)}
-                            className="p-2 relative active:opacity-50"
-                        >
-                            <MessageCircle size={18} color={isDiscussionOpen ? "#3b82f6" : "#cbd5e1"} />
-                            {noteCommentCount > 0 && (
-                                <View className="absolute top-0 right-0 min-w-[14px] h-[14px] rounded-full bg-red-500 items-center justify-center">
-                                    <Text className="text-white text-[8px] font-bold">
-                                        {noteCommentCount > 99 ? "99+" : noteCommentCount}
-                                    </Text>
-                                </View>
-                            )}
+
+                    <View className="flex-1 items-center mx-4">
+                        <Text className="text-white font-bold text-lg text-center" numberOfLines={1}>
+                            {title}
+                        </Text>
+                        <Text className="text-slate-400 text-[10px] mt-0.5 font-medium">
+                            {isReadOnly ? "Read Only" : isSaving ? "Saving..." : content === lastSavedContent ? "Saved" : "Editing"}
+                        </Text>
+                    </View>
+
+                    <View className="flex-row items-center gap-1 -mr-2">
+                        <Pressable onPress={() => setIsFullScreen(true)} className="p-2 active:opacity-50">
+                            <Maximize size={18} color="#cbd5e1" />
                         </Pressable>
-                    )}
-                    
-                    {!isReadOnly && (
-                        <View className="p-2 justify-center">
-                            {isSaving ? (
-                                <ActivityIndicator size="small" color="#60a5fa" />
-                            ) : content === lastSavedContent ? (
-                                <Check size={18} color="#4ade80" />
-                            ) : (
-                                <Pressable onPress={() => handleSave(content)} className="active:opacity-50">
-                                    <Save size={18} color="#94a3b8" />
-                                </Pressable>
-                            )}
-                        </View>
-                    )}
+                        <Pressable onPress={handleCopy} className="p-2 active:opacity-50">
+                            <Copy size={18} color="#cbd5e1" />
+                        </Pressable>
+                        <Pressable onPress={handleShare} className="p-2 active:opacity-50">
+                            <Share2 size={18} color="#cbd5e1" />
+                        </Pressable>
+                        {roomId && title && (
+                            <Pressable
+                                onPress={() => setIsDiscussionOpen((prev) => !prev)}
+                                className="p-2 relative active:opacity-50"
+                            >
+                                <MessageCircle size={18} color={isDiscussionOpen ? "#3b82f6" : "#cbd5e1"} />
+                                {noteCommentCount > 0 && (
+                                    <View className="absolute top-0 right-0 min-w-[14px] h-[14px] rounded-full bg-red-500 items-center justify-center">
+                                        <Text className="text-white text-[8px] font-bold">
+                                            {noteCommentCount > 99 ? "99+" : noteCommentCount}
+                                        </Text>
+                                    </View>
+                                )}
+                            </Pressable>
+                        )}
+                        
+                        {!isReadOnly && (
+                            <View className="p-2 justify-center">
+                                {isSaving ? (
+                                    <ActivityIndicator size="small" color="#60a5fa" />
+                                ) : content === lastSavedContent ? (
+                                    <Check size={18} color="#4ade80" />
+                                ) : (
+                                    <Pressable onPress={() => handleSave(content)} className="active:opacity-50">
+                                        <Save size={18} color="#94a3b8" />
+                                    </Pressable>
+                                )}
+                            </View>
+                        )}
+                    </View>
                 </View>
-            </View>
+            )}
 
             {isLoading ? (
                 <View className="flex-1 items-center justify-center">
@@ -299,8 +305,8 @@ export default function NoteEditorScreen() {
                     <View className="flex-1 bg-slate-900/60">
 
 
-                        <View className="flex-1">
-                            {!isReadOnly && (
+                        <View className="flex-1 relative">
+                            {!isReadOnly && !isFullScreen && (
                                 <RichToolbar
                                     editor={richText}
                                     actions={[
@@ -318,6 +324,17 @@ export default function NoteEditorScreen() {
                                     iconTint="#94a3b8"
                                     selectedIconTint="#3b82f6"
                                 />
+                            )}
+                            
+                            {isFullScreen && (
+                                <View className="absolute bottom-6 right-6 z-50">
+                                    <Pressable 
+                                        onPress={() => setIsFullScreen(false)}
+                                        className="bg-slate-800/80 p-3 rounded-full border border-slate-700 shadow-lg"
+                                    >
+                                        <Minimize size={20} color="white" />
+                                    </Pressable>
+                                </View>
                             )}
                             <ScrollView 
                                 ref={scrollRef} 
