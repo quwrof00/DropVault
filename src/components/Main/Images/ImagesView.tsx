@@ -2,6 +2,7 @@ import type React from "react";
 import { Dialog, type DialogProps } from "../../UI/Dialog";
 import ItemDiscussion from "../ItemDiscussion";
 import { formatFileSize, getBaseName, makeImagePublicUrl, type ImageFileEntry } from "./helpers";
+import { Skeleton } from "../../UI/Skeleton";
 
 type ImagesViewProps = {
   roomId?: string | null;
@@ -127,11 +128,20 @@ export default function ImagesView(props: ImagesViewProps) {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600 border-t-blue-500"></div>
-            <p className="text-gray-400 font-medium">Loading images...</p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="bg-gray-700 border border-gray-600/50 rounded-xl shadow-lg overflow-hidden flex flex-col h-full">
+              <Skeleton className="w-full aspect-square rounded-none" />
+              <div className="p-4 space-y-3 flex-1 flex flex-col">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <div className="pt-2 border-t border-gray-600 mt-auto flex justify-between">
+                  <Skeleton className="w-8 h-8 rounded-lg" />
+                  <Skeleton className="w-8 h-8 rounded-lg" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -6,6 +6,8 @@ export interface SidebarItem {
   id: string;
   path: string;
   name?: string;
+  updated_at?: string;
+  created_at?: string;
 }
 
 interface SidebarProps {
@@ -26,6 +28,7 @@ interface SidebarProps {
   getItemBadge?: (id: string) => { text: string; colorClass: string } | undefined;
   isOpen?: boolean; // Controlled by parent on mobile
   onClose?: () => void; // To close the sidebar
+  onOpenSearch?: () => void; // To open global search modal
 }
 
 interface TreeNode {
@@ -34,6 +37,8 @@ interface TreeNode {
   fullPath: string;
   type: 'file' | 'folder';
   children?: TreeNode[];
+  updated_at?: string;
+  created_at?: string;
 }
 
 const SubSidebar: React.FC<SidebarProps> = ({
@@ -52,13 +57,15 @@ const SubSidebar: React.FC<SidebarProps> = ({
   itemCounts = {}, // Default empty
   isItemEditable,
   getItemBadge,
-  isOpen = false, // Default closed on mobile if not specified
-  onClose
+  isOpen = false,
+  onClose,
+  onOpenSearch
 }) => {
   const [isDesktopOpen, setIsDesktopOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'folders' | 'files'>('folders'); //'folders' (Tree) | 'files' (Stray/Root only)
   const [visibleCount, setVisibleCount] = useState(50);
+  const [sortType, setSortType] = useState<'alphabetical' | 'updated_at' | 'created_at'>('alphabetical');
 
   const { targetRef, isIntersecting } = useIntersectionObserver({ rootMargin: '200px' });
 
@@ -70,7 +77,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
 
  useEffect(() => {
    setVisibleCount(50);
- }, [search, viewMode]);
+ }, [search, viewMode, sortType]);
 
  // Build tree structure
  const { treeStructure, totalCount } = useMemo(() => {
@@ -100,7 +107,19 @@ const SubSidebar: React.FC<SidebarProps> = ({
  const bParts = b.path.split('/');
  for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
  if (aParts[i] !== bParts[i]) {
- return aParts[i].localeCompare(bParts[i]);
+   const aIsFileAtThisLevel = (i === aParts.length - 1);
+   const bIsFileAtThisLevel = (i === bParts.length - 1);
+   
+   if (aIsFileAtThisLevel && bIsFileAtThisLevel && sortType !== 'alphabetical') {
+     const aDate = sortType === 'updated_at' ? a.updated_at : a.created_at;
+     const bDate = sortType === 'updated_at' ? b.updated_at : b.created_at;
+     if (aDate && bDate) {
+       return new Date(bDate).getTime() - new Date(aDate).getTime();
+     }
+     if (aDate) return -1;
+     if (bDate) return 1;
+   }
+   return aParts[i].localeCompare(bParts[i]);
  }
  }
  return aParts.length - bParts.length;
@@ -112,7 +131,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  const parts = itemObj.path.split('/');
 
  if (parts.length === 1) {
- root.push({ id: itemObj.id, name: parts[0], fullPath: itemObj.path, type:'file' });
+ root.push({ id: itemObj.id, name: parts[0], fullPath: itemObj.path, type:'file', updated_at: itemObj.updated_at, created_at: itemObj.created_at });
  } else {
  let currentPath ='';
  for (let i = 0; i < parts.length - 1; i++) {
@@ -132,7 +151,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  }
 
  const parentPath = parts.slice(0, -1).join('/');
- const fileNode: TreeNode = { id: itemObj.id, name: parts[parts.length - 1], fullPath: itemObj.path, type:'file' };
+ const fileNode: TreeNode = { id: itemObj.id, name: parts[parts.length - 1], fullPath: itemObj.path, type:'file', updated_at: itemObj.updated_at, created_at: itemObj.created_at };
 
  if (parentPath) {
  folderMap.get(parentPath)?.children?.push(fileNode);
@@ -142,7 +161,7 @@ const SubSidebar: React.FC<SidebarProps> = ({
  }
  });
  return { treeStructure: root, totalCount: sortedItems.length };
- }, [items, search, viewMode, visibleCount]);
+ }, [items, search, viewMode, visibleCount, sortType]);
 
  const toggleFolder = (folderPath: string) => {
  setExpandedFolders(prev => {
@@ -223,6 +242,9 @@ const SubSidebar: React.FC<SidebarProps> = ({
  );
  }
 
+  const displayDate = sortType === 'updated_at' ? node.updated_at : node.created_at;
+  const formattedDate = displayDate ? new Date(displayDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
  return (
  <div
  key={node.id}
@@ -233,21 +255,26 @@ const SubSidebar: React.FC<SidebarProps> = ({
  if (window.innerWidth < 768 && onClose) onClose();
  }}
  >
- <div className="flex items-center gap-2 flex-1 min-w-0">
- <File size={14} className="text-blue-400 flex-shrink-0" />
- <span className={`truncate text-sm transition-colors duration-200 ${isSelected ? 'text-blue-400 font-semibold' : 'text-gray-300 group-hover:text-gray-100'}`} title={node.name}>{node.name}</span>
- {count > 0 && (
- <span className="ml-2 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-1 ring-gray-900">
- {count > 99 ?'99+' : count}
- </span>
- )}
- 
-  {getItemBadge && getItemBadge(node.id) && (
-    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${getItemBadge(node.id)!.colorClass}`}>
-      {getItemBadge(node.id)!.text}
-    </span>
-  )}
-</div>
+ <div className="flex flex-col min-w-0 flex-1">
+   <div className="flex items-center gap-2">
+     <File size={14} className="text-blue-400 flex-shrink-0" />
+     <span className={`truncate text-sm transition-colors duration-200 ${isSelected ? 'text-blue-400 font-semibold' : 'text-gray-300 group-hover:text-gray-100'}`} title={node.name}>{node.name}</span>
+     {count > 0 && (
+     <span className="ml-2 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold ring-1 ring-gray-900">
+     {count > 99 ?'99+' : count}
+     </span>
+     )}
+     
+      {getItemBadge && getItemBadge(node.id) && (
+        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium ${getItemBadge(node.id)!.colorClass}`}>
+          {getItemBadge(node.id)!.text}
+        </span>
+      )}
+   </div>
+   {sortType !== 'alphabetical' && formattedDate && (
+     <span className="text-[10px] text-gray-500 pl-6 pt-0.5">{formattedDate}</span>
+   )}
+ </div>
 
  {(isDesktopOpen || window.innerWidth < 768) && (
  <div className="flex gap-2 opacity-0 group-hover:opacity-100">
@@ -331,15 +358,36 @@ const SubSidebar: React.FC<SidebarProps> = ({
  </div>
 
  <div className="px-4 flex flex-col gap-3 py-2">
- <div className="relative">
- <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
- <input
- type="text"
- placeholder={`Search...`}
- className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
- value={search}
- onChange={(e) => setSearch(e.target.value)}
- />
+ <div className="flex gap-2 items-center">
+   <div className="relative flex-1">
+   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+   {onOpenSearch ? (
+     <button
+       onClick={onOpenSearch}
+       className="w-full text-left pl-9 pr-2 py-2 rounded-lg border border-gray-600 bg-gray-700 text-gray-400 hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+     >
+       Search notes...
+     </button>
+   ) : (
+     <input
+     type="text"
+     placeholder={`Search...`}
+     className="w-full pl-9 pr-2 py-2 rounded-lg border border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+     value={search}
+     onChange={(e) => setSearch(e.target.value)}
+     />
+   )}
+   </div>
+   <select
+     className="bg-gray-700 border border-gray-600 text-gray-200 text-xs rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[85px]"
+     value={sortType}
+     onChange={(e) => setSortType(e.target.value as any)}
+     title="Sort by"
+   >
+     <option value="alphabetical">A-Z</option>
+     <option value="updated_at">Updated</option>
+     <option value="created_at">Created</option>
+   </select>
  </div>
 
  <div className="flex gap-2">

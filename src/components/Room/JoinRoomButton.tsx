@@ -8,7 +8,7 @@ export function JoinRoomButton({ onClick, isJoining = false }: JoinRoomButtonPro
  <button
  onClick={onClick}
  disabled={isJoining}
- className="group relative flex items-center justify-center bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-500 hover:to-cyan-600 disabled:from-cyan-800 disabled:to-cyan-900 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 disabled:cursor-not-allowed overflow-hidden"
+ className="group relative flex items-center justify-center bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 disabled:cursor-not-allowed overflow-hidden"
 >
 
  <div className="absolute inset-0 bg-white/10 -skew-x-12 -translate-x-full group-hover:translate-x-full"></div>

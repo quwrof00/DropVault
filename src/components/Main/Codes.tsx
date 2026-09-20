@@ -8,6 +8,7 @@ import Compiler from"../Compiler/Compiler";
 import { Dialog, type DialogProps } from"../UI/Dialog";
 import { Loader2 } from"lucide-react";
 import { logActivity } from "../../lib/activity";
+import { Skeleton } from "../UI/Skeleton";
 
 const languages = [
  { label:"C", value:"c" },
@@ -248,21 +249,41 @@ export default function Codes({ roomId }: CodesProps) {
     };
   }, [forceSave]);
 
- if (user === undefined || isLoading) {
- return (
- <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gray-700">
- <div className="flex flex-col items-center space-y-4">
- <div className="relative">
- <div className="w-12 h-12 border-4 border-gray-600 border-t-green-500 rounded-full animate-spin"></div>
- <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-r-green-400 rounded-full animate-ping"></div>
- </div>
- <p className="text-gray-300 text-base sm:text-lg font-medium">
- {user === undefined ?"Loading..." :"Loading your code snippets..."}
- </p>
- </div>
- </div>
- );
- }
+  if (user === undefined || isLoading) {
+    return (
+      <div className="flex flex-col md:flex-row h-full bg-gray-700 rounded-lg shadow-lg overflow-hidden">
+        {/* Sidebar Skeleton */}
+        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-600 bg-gray-800/30 flex flex-col p-4 shrink-0">
+          <Skeleton className="h-10 w-full mb-6" />
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-4/5" />
+          </div>
+        </div>
+        {/* Main Content Skeleton */}
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
+          <div className="flex justify-between items-center mb-2">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-10 w-32 rounded-lg" />
+          </div>
+          <div className="flex-1 bg-gray-800/50 border border-gray-600/50 rounded-xl p-4 space-y-4 flex flex-col">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-5/6 mt-8" />
+          </div>
+          <div className="h-48 bg-gray-800/50 border border-gray-600/50 rounded-xl p-4 flex flex-col gap-3">
+             <Skeleton className="h-6 w-1/4" />
+             <Skeleton className="h-4 w-full" />
+             <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSelect = (title: string) => {
     let currentSnippets = snippets;

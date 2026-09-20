@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardCard } from "../components/Dashboard/DashboardCard";
 import { Image, Files, Notebook, Code, Clock, Trash2 } from "lucide-react";
+import { Skeleton } from "../components/UI/Skeleton";
 
 interface Activity {
   id: number;
@@ -118,10 +119,43 @@ export default function Dashboard() {
 
   if (counts.loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        <div className="flex items-center space-x-3 text-gray-300">
-          <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-          <span className="font-medium">Loading dashboard...</span>
+      <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-gray-800">
+            <Skeleton className="h-10 w-1/3 md:w-1/4" />
+            <div className="flex gap-4 mt-4 md:mt-0">
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-gray-800 border border-gray-700 rounded-xl p-6 h-32 flex flex-col justify-between">
+                <div className="flex justify-between items-start">
+                   <Skeleton className="h-6 w-20" />
+                   <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 w-16" />
+              </div>
+            ))}
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center gap-3 mb-6">
+              <Skeleton className="w-6 h-6 rounded-full" />
+              <Skeleton className="h-7 w-40" />
+            </div>
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-lg bg-gray-900/50 border border-gray-700/50">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-5 w-1/3" />
+                    <Skeleton className="h-4 w-1/4" />
+                  </div>
+                  <Skeleton className="w-8 h-8 rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );

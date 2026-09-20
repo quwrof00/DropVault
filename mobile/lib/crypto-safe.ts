@@ -75,32 +75,34 @@ const deriveNodeForgeKeyAsync = (keyString: string, salt: Uint8Array): Promise<s
 
 export async function encrypt(text: string, keyString: string) {
     if (subtleProvider) {
-        const keyMaterial = await subtleProvider.importKey("raw", strToBuf(keyString), { name: "PBKDF2" }, false, ["deriveKey"]);
-        const salt = new Uint8Array(16);
-        randomProvider ? randomProvider(salt) : window.crypto.getRandomValues(salt);
-        const key = await subtleProvider.deriveKey({ name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+        // v2 Fast Encryption
+        const hashBuffer = await subtleProvider.digest('SHA-256', strToBuf(keyString));
+        const key = await subtleProvider.importKey('raw', hashBuffer, { name: 'AES-GCM' }, false, ['encrypt']);
+        
         const iv = new Uint8Array(12);
         randomProvider ? randomProvider(iv) : window.crypto.getRandomValues(iv);
+        
         const ciphertextBuffer = await subtleProvider.encrypt({ name: "AES-GCM", iv }, key, strToBuf(text));
         
         return {
             ciphertext: bytesToBase64(new Uint8Array(ciphertextBuffer)),
             iv: bytesToBase64(iv),
-            salt: bytesToBase64(salt),
+            salt: "v2",
         };
     }
 
     // Node-Forge Fallback Path (slower, pure JS)
     const forge = getForge();
     const cryptoApi = globalThis.crypto as Crypto;
-    const salt = new Uint8Array(16);
-    cryptoApi.getRandomValues(salt);
     const iv = new Uint8Array(12);
     cryptoApi.getRandomValues(iv);
 
-    const key = await deriveNodeForgeKeyAsync(keyString, salt);
+    // v2 Fast Encryption
+    const md = forge.md.sha256.create();
+    md.update(keyString, 'utf8');
+    const keyBytes = md.digest().getBytes();
 
-    const cipher = forge.cipher.createCipher("AES-GCM", key);
+    const cipher = forge.cipher.createCipher("AES-GCM", keyBytes);
     cipher.start({
         iv: forge.util.binary.raw.encode(iv),
         tagLength: 128,
@@ -120,7 +122,7 @@ export async function encrypt(text: string, keyString: string) {
     return {
         ciphertext: bytesToBase64(combined),
         iv: bytesToBase64(iv),
-        salt: bytesToBase64(salt),
+        salt: "v2",
     };
 }
 
@@ -131,6 +133,14 @@ export async function decrypt(
     const { ciphertext, iv, salt } = encrypted;
     
     if (subtleProvider) {
+        if (salt === "v2") {
+            const hashBuffer = await subtleProvider.digest('SHA-256', strToBuf(keyString));
+            const derivedKey = await subtleProvider.importKey('raw', hashBuffer, { name: 'AES-GCM' }, false, ['decrypt']);
+            const decryptedBuffer = await subtleProvider.decrypt({ name: "AES-GCM", iv: base64ToBytes(iv) as unknown as BufferSource }, derivedKey, base64ToBytes(ciphertext) as unknown as BufferSource);
+            return bufToStr(new Uint8Array(decryptedBuffer));
+        }
+
+        // Legacy v1 PBKDF2 decryption
         const keyMaterial = await subtleProvider.importKey("raw", strToBuf(keyString), { name: "PBKDF2" }, false, ["deriveKey"]);
         const derivedKey = await subtleProvider.deriveKey({ name: "PBKDF2", salt: base64ToBytes(salt) as unknown as BufferSource, iterations: 150000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
         const decryptedBuffer = await subtleProvider.decrypt({ name: "AES-GCM", iv: base64ToBytes(iv) as unknown as BufferSource }, derivedKey, base64ToBytes(ciphertext) as unknown as BufferSource);
@@ -141,13 +151,20 @@ export async function decrypt(
     const forge = getForge();
     const encryptedBytes = base64ToBytes(ciphertext);
     const ivBytes = base64ToBytes(iv);
-    const saltBytes = base64ToBytes(salt);
 
     if (encryptedBytes.length < 16) {
         throw new Error("Invalid encrypted note payload");
     }
 
-    const key = await deriveNodeForgeKeyAsync(keyString, saltBytes);
+    let key: string;
+    if (salt === "v2") {
+        const md = forge.md.sha256.create();
+        md.update(keyString, 'utf8');
+        key = md.digest().getBytes();
+    } else {
+        const saltBytes = base64ToBytes(salt);
+        key = await deriveNodeForgeKeyAsync(keyString, saltBytes);
+    }
 
     const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
     const cipherBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);

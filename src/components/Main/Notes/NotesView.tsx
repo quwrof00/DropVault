@@ -5,6 +5,10 @@ import Editor from "../../Editor/Editor";
 import ItemDiscussion from "../ItemDiscussion";
 import { type NoteRow, type NotesUser as User, getNoteId } from "./helpers";
 import { getUserColorClasses } from "../../../lib/colors";
+import { useInvertedIndex } from "../../../hooks/useInvertedIndex";
+import { NoteSearchModal } from "../../UI/NoteSearchModal";
+import { useState, useEffect } from "react";
+import { Skeleton } from "../../UI/Skeleton";
 
 type NotesViewProps = {
   roomId?: string | null;
@@ -79,12 +83,48 @@ export default function NotesView({
   handleTextUpdate,
   files,
 }: NotesViewProps) {
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const index = useInvertedIndex(files);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] bg-gray-700 rounded-lg shadow-lg items-center justify-center">
-        <div className="flex items-center space-x-3 text-gray-300">
-          <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-          <span>Loading notes...</span>
+      <div className="flex flex-col md:flex-row h-full bg-gray-700 rounded-lg shadow-lg overflow-hidden">
+        {/* Sidebar Skeleton */}
+        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-gray-600 bg-gray-800/30 flex flex-col p-4 shrink-0">
+          <Skeleton className="h-10 w-full mb-6" />
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-4/5" />
+          </div>
+        </div>
+        {/* Main Content Skeleton */}
+        <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <Skeleton className="h-8 w-1/3" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+          </div>
+          <div className="flex-1 bg-gray-800/20 border border-gray-600/30 rounded-xl p-6 space-y-4">
+            <Skeleton className="h-10 w-1/2 mb-8" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-5/6 mt-8" />
+            <Skeleton className="h-4 w-full" />
+          </div>
         </div>
       </div>
     );
@@ -104,6 +144,17 @@ export default function NotesView({
 
 
       <Dialog onClose={closeDialog} {...dialog} isOpen={dialog.isOpen} title={dialog.title || ""} />
+      
+      <NoteSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        files={files}
+        index={index}
+        onSelectNote={(id) => {
+          handleFileSelect(id);
+          setIsSidebarOpen(false);
+        }}
+      />
 
       <SubSidebar
         search={search}
@@ -123,6 +174,7 @@ export default function NotesView({
         isCreating={isCreating}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        onOpenSearch={() => setIsSearchModalOpen(true)}
         itemCounts={itemCounts}
         isItemEditable={(id) => {
           const note = supabaseNotes?.find((item) => getNoteId(item.user_id, item.title) === id);
@@ -255,7 +307,7 @@ export default function NotesView({
                     initialContent={text}
                     onUpdate={handleTextUpdate}
                     isFullScreen={isFullScreen}
-                    readOnly={!!(currentNote?.user_id && currentNote.user_id !== user?.id)}
+                    readOnly={isReadOnly}
                     key={currentFile}
                   />
                 ) : (
@@ -263,7 +315,7 @@ export default function NotesView({
                     content={text}
                     onUpdate={handleTextUpdate}
                     isFullScreen={isFullScreen}
-                    readOnly={!!(currentNote?.user_id && currentNote.user_id !== user?.id)}
+                    readOnly={isReadOnly}
                     key={currentFile}
                   />
                 )}

@@ -8,6 +8,7 @@ import { useRooms } from"../hooks/useRooms";
 import type { RoomFormData } from"../hooks/useRooms";
 import { Dialog, type DialogProps } from "../components/UI/Dialog";
 import { useIntersectionObserver } from "../hooks/useIntersectionObserver";
+import { Skeleton } from "../components/UI/Skeleton";
 
 export default function RoomsPage() {
  const user = useAuthUser();
@@ -211,8 +212,19 @@ export default function RoomsPage() {
  </div>
 
  {loading ? (
- <div className="flex justify-center items-center h-64">
- <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-200"></div>
+ <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   {[...Array(6)].map((_, i) => (
+     <div key={i} className="bg-gray-800 rounded-xl p-6 border border-gray-700/50 shadow-lg h-36 flex flex-col justify-between">
+       <div className="flex justify-between items-start">
+          <Skeleton className="h-6 w-1/2" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
+       </div>
+       <div className="flex gap-2 mt-auto">
+          <Skeleton className="h-8 w-20 rounded-lg" />
+          <Skeleton className="h-8 w-20 rounded-lg" />
+       </div>
+     </div>
+   ))}
  </div>
  ) : rooms.length === 0 ? (
  <p className="text-gray-400 text-lg italic text-center py-16">

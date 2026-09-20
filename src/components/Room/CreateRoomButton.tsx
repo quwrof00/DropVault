@@ -8,7 +8,7 @@ export function CreateRoomButton({ onClick, isCreating }: CreateRoomButtonProps)
  <button
  onClick={onClick}
  disabled={isCreating}
- className="group relative flex items-center justify-center bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:from-emerald-800 disabled:to-emerald-900 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 disabled:cursor-not-allowed overflow-hidden"
+ className="group relative flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white px-4 py-2 rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 disabled:cursor-not-allowed overflow-hidden"
  >
  <div className="absolute inset-0 bg-white/10 -skew-x-12 -translate-x-full group-hover:translate-x-full"></div>
  <div className="relative flex items-center space-x-2">

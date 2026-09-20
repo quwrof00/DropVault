@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase-client";
 import { useAuth } from "../../context/AuthContext";
 import { Image, Folder, FileText, Code, Box, X, ChevronDown, User, Eye, EyeOff, Copy, Check } from "lucide-react";
 import { getUserColorClasses } from "../../lib/colors";
+import { Skeleton } from "../UI/Skeleton";
 
 type RoomUser = {
     id: string;
@@ -35,6 +36,8 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
     const [showCode, setShowCode] = useState(false);
     const [copied, setCopied] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
+
+    const [roomName, setRoomName] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchMembers = async () => {
@@ -107,16 +110,18 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
         const fetchRoomDetails = async () => {
             if (!roomId) {
                 setRoomCode(null);
+                setRoomName(null);
                 return;
             }
             const { data } = await supabase
                 .from("rooms")
-                .select("code")
+                .select("code, name")
                 .eq("id", roomId)
                 .single();
 
             if (data) {
                 setRoomCode(data.code);
+                setRoomName(data.name);
             }
         };
 
@@ -140,7 +145,7 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
     }, [roomId]);
 
     return (
-        <div className={`bg-gray-950 border-r border-gray-800 text-gray-300 flex flex-col h-full ${isCollapsed ? 'md:w-20' : 'md:w-64'} ${className}`}>
+        <div className={`bg-gray-950 md:bg-transparent border-r border-gray-800 md:border-r-0 text-gray-300 flex flex-col h-full ${isCollapsed ? 'md:w-20' : 'md:w-64'} ${className}`}>
             {/* Header */}
             <div className={`p-4 border-b border-gray-800/50 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                 {!isCollapsed && (
@@ -151,7 +156,7 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
                             </div>
                             <div className="min-w-0">
                                 <h2 className="text-xl font-bold text-gray-100 tracking-tight truncate">
-                                    {roomId ? "Room Vault" : "My Vault"}
+                                    {roomId ? (roomName || "Room Vault") : "My Vault"}
                                 </h2>
                             </div>
                         </div>
@@ -271,9 +276,13 @@ const Sidebar = ({ onSelect, activeSection, className = "", onClose }: SidebarPr
                         {!isCollapsed && !isMembersCollapsed && (
                             <div className="space-y-1 px-1">
                                 {isLoadingMembers ? (
-                                    <div className="flex items-center space-x-2 px-2 py-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-blue-500"></div>
-                                        <span className="text-xs text-gray-500">Loading...</span>
+                                    <div className="space-y-1">
+                                        {[...Array(3)].map((_, i) => (
+                                            <div key={i} className="flex items-center gap-3 px-2 py-2">
+                                                <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+                                                <Skeleton className="h-4 w-24" />
+                                            </div>
+                                        ))}
                                     </div>
                                 ) : roomMembers.length > 0 ? (
                                     <ul className="space-y-1">

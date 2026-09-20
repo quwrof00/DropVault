@@ -9,7 +9,7 @@ export default function Footer() {
  <div className="mb-4 md:mb-0">
  <button
  onClick={() => navigate('/')}
- className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-300"
+ className="text-2xl font-bold text-white"
  >
  DropVault
  </button>

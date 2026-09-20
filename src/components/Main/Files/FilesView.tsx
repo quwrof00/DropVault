@@ -1,6 +1,7 @@
 import { Dialog, type DialogProps } from "../../UI/Dialog";
 import ItemDiscussion from "../ItemDiscussion";
 import { formatFileSize, getFileIcon, type StoredFileEntry } from "./helpers";
+import { Skeleton } from "../../UI/Skeleton";
 
 type FilesViewProps = {
   roomId?: string | null;
@@ -116,11 +117,22 @@ export default function FilesView({
         />
       </div>
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center space-x-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-600 border-t-blue-500"></div>
-            <p className="text-gray-400 font-medium">Loading files...</p>
-          </div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-gray-900/40 border border-white/5 rounded-2xl p-3 sm:p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                <Skeleton className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="w-8 h-8 rounded-lg" />
+                <Skeleton className="w-8 h-8 rounded-lg" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {!isLoading && filteredFiles.length === 0 && (

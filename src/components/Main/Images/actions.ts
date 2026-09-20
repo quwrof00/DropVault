@@ -82,9 +82,17 @@ export const triggerImageProcessing = async (payload: {
   fileType: string;
 }) => {
   const apiUrl = import.meta.env.VITE_API_URL || "/api";
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   return fetch(`${apiUrl}/images/process`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
   });
 };

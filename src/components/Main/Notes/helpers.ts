@@ -10,6 +10,7 @@ export interface NoteRow {
   iv: string | null;
   salt: string | null;
   updated_at: string | null;
+  created_at?: string | null;
   is_collaborative?: boolean | null;
   user_id?: string | null;
 }
@@ -22,8 +23,17 @@ export const parseNoteId = (id: string) => {
   return { userId: id.slice(0, i), title: id.slice(i + 1) };
 };
 
-export const buildNotesList = (files: Record<string, string>) =>
-  Object.keys(files).map((id) => ({ id, path: parseNoteId(id).title }));
+export const buildNotesList = (files: Record<string, string>, notes?: NoteRow[]) =>
+  Object.keys(files).map((id) => {
+    const parsed = parseNoteId(id);
+    const note = notes?.find(n => getNoteId(n.user_id, n.title) === id);
+    return { 
+      id, 
+      path: parsed.title,
+      updated_at: note?.updated_at || undefined,
+      created_at: note?.created_at || undefined
+    };
+  });
 
 export const fetchUserEmailMap = async (notes: NoteRow[]) => {
   const userIds = [...new Set(notes.map((note) => note.user_id).filter(Boolean))] as string[];

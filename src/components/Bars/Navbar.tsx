@@ -90,10 +90,10 @@ export function Navbar() {
  <div className="flex items-center space-x-4 md:space-x-8">
  <button
  onClick={() => navigate("/")}
- className="group text-xl md:text-2xl font-bold font-mono tracking-tight bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent hover:from-white hover:via-emerald-200 hover:to-cyan-200"
+ className="group text-xl md:text-2xl font-bold font-mono tracking-tight text-white hover:text-emerald-400 transition-colors"
  >
  DROPVAULT
- <div className="h-0.5 w-0 group-hover:w-full bg-gradient-to-r from-emerald-400 to-cyan-400 mt-1 mx-auto"></div>
+ <div className="h-0.5 w-0 group-hover:w-full bg-emerald-400 mt-1 mx-auto transition-all"></div>
  </button>
 
  {user && (
@@ -129,6 +129,20 @@ export function Navbar() {
  <div className="flex items-center space-x-4">
  {user ? (
  <>
+ <button
+ onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+ className="hidden md:flex items-center space-x-2 px-3 py-1.5 text-gray-400 bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg group transition-colors"
+ title="Search & Commands"
+ >
+ <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+ <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+ </svg>
+ <span className="text-sm font-medium">Search</span>
+ <kbd className="hidden lg:inline-block px-1.5 py-0.5 ml-2 text-[10px] font-semibold text-gray-400 bg-gray-900 border border-gray-700 rounded-md">
+ Ctrl K
+ </kbd>
+ </button>
+
  <button
  onClick={() => navigate("/dashboard")}
  className="flex items-center space-x-2 px-4 py-2 text-gray-400 hover:text-orange-400 font-medium rounded-xl hover:bg-gray-800/50 group"
@@ -173,7 +187,7 @@ export function Navbar() {
  </button>
  <button
  onClick={() => navigate("/register")}
- className="group relative px-6 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 overflow-hidden"
+ className="group relative px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 overflow-hidden"
  >
  <div className="absolute inset-0 bg-white/10 -skew-x-12 -translate-x-full group-hover:translate-x-full"></div>
  <span className="relative">Sign Up</span>

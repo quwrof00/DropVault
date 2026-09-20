@@ -7,7 +7,7 @@ export const applyNotesScopeFilter = (query: any, userId: string, roomId?: strin
 export const fetchNotes = async (userId: string, roomId?: string | null) => {
   let query = supabase
     .from("notes")
-    .select("title, ciphertext, iv, salt, updated_at, is_collaborative, user_id");
+    .select("title, ciphertext, iv, salt, updated_at, created_at, is_collaborative, user_id");
 
   query = applyNotesScopeFilter(query, userId, roomId);
   query = query.order("updated_at", { ascending: false });

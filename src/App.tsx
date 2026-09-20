@@ -11,6 +11,8 @@ import { Toaster } from "react-hot-toast";
 import Dashboard from "./pages/Dashboard";
 import { Protector } from "./components/Auth/Protector";
 
+import CommandPalette from "./components/UI/CommandPalette";
+
 function App() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
@@ -18,6 +20,7 @@ function App() {
   return (
     <>
       <Navbar />
+      <CommandPalette />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />

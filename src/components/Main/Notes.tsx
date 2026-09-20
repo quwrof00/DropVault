@@ -693,9 +693,9 @@ export default function Notes({ roomId }: NotesProps) {
     [scheduleSave],
   );
 
-  const allFilePaths = buildNotesList(files);
+  const allFilePaths = buildNotesList(files, supabaseNotes || undefined);
   const currentNote = supabaseNotes?.find((note) => getNoteId(note.user_id, note.title) === currentFile);
-  const isReadOnly = currentNote?.user_id !== user?.id;
+  const isReadOnly = currentNote?.user_id !== user?.id && !currentNote?.is_collaborative;
   const currentPath = currentFile ? parseNoteId(currentFile).title : "";
 
   return (
