@@ -19,6 +19,8 @@ type FilesViewProps = {
   setRenamingFile: (value: string | null) => void;
   isRenaming: boolean;
   uploadingFiles: Set<string>;
+  /** Files currently being decrypted + downloaded. */
+  downloadingFiles?: Set<string>;
   itemCounts: Record<string, number>;
   dialog: Partial<DialogProps> & { isOpen: boolean };
   closeDialog: () => void;
@@ -31,6 +33,9 @@ type FilesViewProps = {
   onStartRename: (name: string) => void;
   onRename: (name: string, newName: string) => void | Promise<void>;
   onDelete: (name: string) => void;
+  /** Triggered when the user clicks the download button; decrypts then saves. */
+  onDownload?: (name: string) => void | Promise<void>;
+  /** Legacy — pass () => undefined when files are encrypted. */
   getPublicUrl: (fileName: string, lastModified?: number) => string | undefined;
 };
 
@@ -49,6 +54,7 @@ export default function FilesView({
   setRenamingFile,
   isRenaming,
   uploadingFiles,
+  downloadingFiles = new Set(),
   itemCounts,
   dialog,
   closeDialog,
@@ -61,6 +67,7 @@ export default function FilesView({
   onStartRename,
   onRename,
   onDelete,
+  onDownload,
   getPublicUrl,
 }: FilesViewProps) {
   return (
@@ -190,7 +197,23 @@ export default function FilesView({
                         <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-xl ${fileIcon.bg} flex items-center justify-center text-sm sm:text-2xl flex-shrink-0 shadow-inner border border-white/5 group-hover:scale-105 transition-transform duration-300`}>{fileIcon.icon}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <a href={getPublicUrl(name, file.lastModified)} target="_blank" rel="noreferrer" className="font-medium text-sm sm:text-base text-gray-200 hover:text-blue-400 truncate" title={name}>{name}</a>
+                            {getPublicUrl(name, file.lastModified) ? (
+                              <a
+                                href={getPublicUrl(name, file.lastModified)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium text-sm sm:text-base text-gray-200 hover:text-blue-400 truncate"
+                                title={name}
+                              >
+                                {name}
+                              </a>
+                            ) : (
+                              <>
+                                <span className="font-medium text-sm sm:text-base text-gray-200 truncate" title={name}>{name}</span>
+                                {/* 🔒 encrypted badge */}
+                                <span className="text-[10px] text-teal-400/80 font-mono bg-teal-500/10 px-1.5 py-0.5 rounded border border-teal-500/20 flex-shrink-0" title="End-to-end encrypted">🔒 E2E</span>
+                              </>
+                            )}
                             {file.uploaded ? <div className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">Uploaded</div> : uploadingFiles.has(name) ? <div className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">{Math.round(file.progress)}%</div> : <div className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded-full font-medium flex-shrink-0">Failed</div>}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
@@ -203,6 +226,33 @@ export default function FilesView({
                       </div>
                       <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
                         {roomId && file.uploaded && <button onClick={() => onToggleDiscussion(name)} className={`relative p-1.5 sm:p-2 rounded-lg ${expandedFile === name ? "text-blue-400 bg-blue-400/10" : "text-gray-400 hover:text-blue-400 hover:bg-blue-400/10"}`} title="Discussion"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>{itemCounts[name] > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white ring-2 ring-gray-900">{itemCounts[name] > 99 ? "99+" : itemCounts[name]}</span>}</button>}
+                        {/* Download button — legacy files download/open direct URL; encrypted decrypt in browser */}
+                        {file.uploaded && (
+                          getPublicUrl(name, file.lastModified) ? (
+                            <a
+                              href={getPublicUrl(name, file.lastModified)}
+                              download={name}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg"
+                              title="Download file"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            </a>
+                          ) : onDownload ? (
+                            <button
+                              onClick={() => onDownload(name)}
+                              disabled={downloadingFiles.has(name)}
+                              className="p-1.5 sm:p-2 text-gray-400 hover:text-teal-400 hover:bg-teal-400/10 rounded-lg disabled:opacity-50"
+                              title="Decrypt & download"
+                            >
+                              {downloadingFiles.has(name)
+                                ? <div className="w-4 h-4 border-2 border-teal-400/30 border-t-teal-400 rounded-full animate-spin" />
+                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                              }
+                            </button>
+                          ) : null
+                        )}
                         {file.uploaded && <button onClick={() => onStartRename(name)} className="p-1.5 sm:p-2 text-gray-400 hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg" title="Rename file"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>}
                         <button onClick={() => onDelete(name)} className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg" title="Delete file"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                       </div>
