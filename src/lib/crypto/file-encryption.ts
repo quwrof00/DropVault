@@ -103,6 +103,8 @@ export interface EncryptedFileResult {
   fileIv: string;
   /** Wrapped DEK — store encrypted_dek + dek_iv in file_metadata. */
   wrappedDEK: WrappedDEK;
+  /** Raw DEK — available to caller for encrypting linked thumbnails before disposal. */
+  rawDek?: CryptoKey;
 }
 
 /**
@@ -110,7 +112,7 @@ export interface EncryptedFileResult {
  * Suitable for files up to ~50 MB. For larger files, use chunked streaming.
  */
 export async function encryptFile(
-  file: File,
+  file: File | Blob,
   secretKey: string
 ): Promise<EncryptedFileResult> {
   const dek = await crypto.subtle.generateKey(
@@ -134,6 +136,7 @@ export async function encryptFile(
     cipherBlob: new Blob([ciphertext], { type: "application/octet-stream" }),
     fileIv: toBase64(iv),
     wrappedDEK,
+    rawDek: dek,
   };
 }
 
@@ -201,4 +204,106 @@ export async function decryptToObjectURL(
   });
   return URL.createObjectURL(plainBlob);
 }
+
+// ─── Image thumbnail helpers ──────────────────────────────────────────────────
+
+/**
+ * Generate a client-side thumbnail blob using an offscreen canvas.
+ * Avoids sending unencrypted images to any server-side processing pipeline.
+ */
+export async function createClientThumbnail(
+  file: File | Blob,
+  maxDim = 320
+): Promise<Blob> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width <= 0 || height <= 0) {
+        resolve(file);
+        return;
+      }
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob || file);
+        },
+        "image/webp",
+        0.82
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Encrypt a thumbnail blob with the same DEK as the parent image.
+ * The 12-byte IV is prepended to the ciphertext so no separate DB column is required.
+ */
+export async function encryptThumbnailWithDEK(
+  thumbBlob: Blob,
+  dek: CryptoKey
+): Promise<Blob> {
+  const iv = randomIV();
+  const plaintext = await thumbBlob.arrayBuffer();
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: ALG, iv, tagLength: 128 },
+    dek,
+    plaintext
+  );
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return new Blob([combined], { type: "application/octet-stream" });
+}
+
+/**
+ * Decrypt a thumbnail blob that has a 12-byte prepended IV using the parent DEK.
+ * Returns a temporary in-browser object URL for display.
+ */
+export async function decryptThumbnailWithDEK(
+  cipherBlob: Blob,
+  wrapped: WrappedDEK,
+  secretKey: string
+): Promise<string> {
+  const dek = await unwrapDEK(wrapped, secretKey);
+  const buffer = await cipherBlob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const iv = bytes.slice(0, IV_LEN);
+  const ciphertext = bytes.slice(IV_LEN);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: ALG, iv, tagLength: 128 },
+    dek,
+    ciphertext
+  );
+  const plainBlob = new Blob([plaintext], { type: "image/webp" });
+  return URL.createObjectURL(plainBlob);
+}
+
 

@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase-client";
+import type { ImageMetadataRow } from "./actions";
 
 export type ImageFileEntry = {
   name: string;
@@ -10,6 +11,8 @@ export type ImageFileEntry = {
   previewUrl?: string;
   thumbnailUrl?: string;
   pathPrefix: string;
+  _meta?: ImageMetadataRow;
+  _isLegacy?: boolean;
 };
 
 export const IMAGE_BUCKET = "user-images";
