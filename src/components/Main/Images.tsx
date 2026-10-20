@@ -44,6 +44,7 @@ export default function Images({ roomId }: ImagesProps) {
   const [dragOver, setDragOver] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageName, setSelectedImageName] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<any>({ isOpen: false, title: "" });
   const [visibleCount, setVisibleCount] = useState(24);
@@ -372,6 +373,10 @@ export default function Images({ roomId }: ImagesProps) {
 
   // ─── Fullscreen / Modal preview: decodes full resolution if encrypted ────────
   const handleSelectImage = async (file: FileEntry) => {
+    // The modal swaps in a decrypted object URL for encrypted images, so the
+    // file identity is tracked by name instead of by URL.
+    setSelectedImageName(file.name);
+
     if (file._isLegacy) {
       setSelectedImage(file.url || file.previewUrl || null);
       return;
@@ -398,6 +403,11 @@ export default function Images({ roomId }: ImagesProps) {
     } catch (err) {
       console.error("Failed to decrypt full image", err);
     }
+  };
+
+  const closeSelectedImage = () => {
+    setSelectedImage(null);
+    setSelectedImageName(null);
   };
 
   // ─── Delete ────────────────────────────────────────────────────────────────
@@ -598,7 +608,8 @@ export default function Images({ roomId }: ImagesProps) {
       searchTerm={searchTerm}
       setSearchTerm={setSearchTerm}
       selectedImage={selectedImage}
-      setSelectedImage={setSelectedImage}
+      selectedImageName={selectedImageName}
+      setSelectedImage={closeSelectedImage}
       selectedFiles={selectedFiles}
       setSelectedFiles={setSelectedFiles}
       filteredFiles={filteredFiles}

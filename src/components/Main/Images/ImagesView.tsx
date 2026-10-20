@@ -11,6 +11,7 @@ type ImagesViewProps = {
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   selectedImage: string | null;
+  selectedImageName?: string | null;
   setSelectedImage: (value: string | null) => void;
   selectedFiles: Set<string>;
   setSelectedFiles: (value: Set<string>) => void;
@@ -47,6 +48,7 @@ export default function ImagesView(props: ImagesViewProps) {
     searchTerm,
     setSearchTerm,
     selectedImage,
+    selectedImageName,
     setSelectedImage,
     selectedFiles,
     setSelectedFiles,
@@ -368,9 +370,14 @@ export default function ImagesView(props: ImagesViewProps) {
                 <a
                   href={selectedImage}
                   download={(() => {
-                    const found = Object.values(files).find(
-                      (f) => f.url === selectedImage || f.previewUrl === selectedImage || f.thumbnailUrl === selectedImage
-                    );
+                    const found =
+                      (selectedImageName ? files[selectedImageName] : undefined) ??
+                      Object.values(files).find(
+                        (f) =>
+                          f.url === selectedImage ||
+                          f.previewUrl === selectedImage ||
+                          f.thumbnailUrl === selectedImage
+                      );
                     return found?.name || "image";
                   })()}
                   className="bg-black/50 text-white p-2 rounded-full hover:bg-black/70"
@@ -395,9 +402,17 @@ export default function ImagesView(props: ImagesViewProps) {
                 </div>
                 <div className="flex-1 overflow-hidden p-2">
                   {(() => {
-                    const fileEntry = Object.values(files).find(
-                      (f) => f.url === selectedImage || f.previewUrl === selectedImage || f.thumbnailUrl === selectedImage
-                    );
+                    // Encrypted images are displayed through a decrypted object
+                    // URL that is not stored on the file entry, so the entry is
+                    // resolved by name first and only then by URL.
+                    const fileEntry =
+                      (selectedImageName ? files[selectedImageName] : undefined) ??
+                      Object.values(files).find(
+                        (f) =>
+                          f.url === selectedImage ||
+                          f.previewUrl === selectedImage ||
+                          f.thumbnailUrl === selectedImage
+                      );
                     if (!fileEntry) return <div className="p-4 text-gray-500">Image not found</div>;
                     return <ItemDiscussion itemId={fileEntry.name} itemType="image" roomId={roomId} />;
                   })()}
