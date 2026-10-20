@@ -38,9 +38,9 @@ create policy "Users read own metadata"
   using (
     auth.uid() = user_id
     or (room_id is not null and exists (
-      select 1 from public.room_members
-      where room_members.room_id = file_metadata.room_id
-        and room_members.user_id = auth.uid()
+      select 1 from public.room_users
+      where room_users.room_id = file_metadata.room_id
+        and room_users.user_id = auth.uid()
     ))
   );
 
