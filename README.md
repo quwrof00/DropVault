@@ -56,8 +56,16 @@ Create a `.env` file in the root of your project and populate it with your speci
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_WS_URL=ws://localhost:1234
+
+# Origin of the backend that serves the REST API and the collaboration server.
+# The API URL and the WebSocket URL are derived from it.
+VITE_BACKEND_URL=http://localhost:1234
+
+# Comma separated list of frontend origins allowed to call the API and to open
+# a collaboration WebSocket.
+ALLOWED_ORIGINS=http://localhost:5173
 ```
+See `.env.example` for the full list.
 
 ### Running the Application Locally
 

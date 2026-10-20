@@ -7,6 +7,8 @@ import CollaborationCursor from'@tiptap/extension-collaboration-cursor';
 import * as Y from'yjs';
 import { WebsocketProvider } from'y-websocket';
 import { Bold, Italic, Underline as UnderlineIcon, Pilcrow, List } from 'lucide-react';
+import { wsBaseUrl } from '../lib/backend';
+import { supabase } from '../lib/supabase-client';
 import'./Editor/editor.css';
 
 const ClipboardIcon = ({ copied }: { copied: boolean }) => (
@@ -24,25 +26,27 @@ const getRandomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
 // Internal component to handle the actual editor instance once provider is ready
 function TiptapEditor({
- provider,
- doc,
- initialContent,
- roomId,
- fileName,
- onCopy,
- onUpdate,
- isFullScreen,
- readOnly
+  provider,
+  doc,
+  initialContent,
+  roomId,
+  fileName,
+  onCopy,
+  onUpdate,
+  isFullScreen,
+  readOnly,
+  authError
 }: {
- provider: WebsocketProvider;
- doc: Y.Doc;
- initialContent?: string;
- roomId: string;
- fileName: string;
- onCopy: (text: string) => void;
- onUpdate: (content: string) => void;
- isFullScreen?: boolean;
- readOnly?: boolean;
+  provider: WebsocketProvider;
+  doc: Y.Doc;
+  initialContent?: string;
+  roomId: string;
+  fileName: string;
+  onCopy: (text: string) => void;
+  onUpdate: (content: string) => void;
+  isFullScreen?: boolean;
+  readOnly?: boolean;
+  authError?: string | null;
 }) {
  const [copied, setCopied] = useState(false);
  const [isSynced, setIsSynced] = useState(false);
@@ -210,30 +214,36 @@ function TiptapEditor({
  </button>
  </div>
 
- <div className={`flex items-center gap-3 ${isFullScreen ? 'mr-12' : ''}`}>
- <div className="flex items-center gap-2">
- <span className={`relative flex h-2 w-2`}>
- <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status ==='connected' && isSynced ?'bg-green-400' :
- status ==='connected' && !isSynced ?'bg-yellow-400' :
- status ==='disconnected' ?'bg-red-400' :
-'bg-orange-400'
- }`}></span>
- <span className={`relative inline-flex rounded-full h-2 w-2 ${status ==='connected' && isSynced ?'bg-green-500' :
- status ==='connected' && !isSynced ?'bg-yellow-500' :
- status ==='disconnected' ?'bg-red-500' :
-'bg-orange-500'
- }`}></span>
- </span>
- <span className={`text-xs px-2 py-0.5 rounded-full border ${status ==='connected' && isSynced ?'border-green-500/20 bg-green-500/10 text-green-400' :
- status ==='connected' && !isSynced ?'border-yellow-500/20 bg-yellow-500/10 text-yellow-400' :
- status ==='disconnected' ?'border-red-500/20 bg-red-500/10 text-red-400' :
-'border-orange-500/20 bg-orange-500/10 text-orange-400'
- }`}>
- {status ==='connected'
- ? (isSynced ?'Live' :'Syncing...')
- : (status ==='disconnected' ?'Offline' : (showWakeMessage ?'Waking server...' :'Connecting...'))}
- </span>
- </div>
+  <div className={`flex items-center gap-3 ${isFullScreen ? 'mr-12' : ''}`}>
+  {authError ? (
+  <span className='text-xs px-2 py-0.5 rounded-full border border-red-500/20 bg-red-500/10 text-red-400'>
+  {authError}
+  </span>
+  ) : (
+  <div className="flex items-center gap-2">
+  <span className={`relative flex h-2 w-2`}>
+  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${status ==='connected' && isSynced ?'bg-green-400' :
+  status ==='connected' && !isSynced ?'bg-yellow-400' :
+  status ==='disconnected' ?'bg-red-400' :
+  'bg-orange-400'
+  }`}></span>
+  <span className={`relative inline-flex rounded-full h-2 w-2 ${status ==='connected' && isSynced ?'bg-green-500' :
+  status ==='connected' && !isSynced ?'bg-yellow-500' :
+  status ==='disconnected' ?'bg-red-500' :
+  'bg-orange-500'
+  }`}></span>
+  </span>
+  <span className={`text-xs px-2 py-0.5 rounded-full border ${status ==='connected' && isSynced ?'border-green-500/20 bg-green-500/10 text-green-400' :
+  status ==='connected' && !isSynced ?'border-yellow-500/20 bg-yellow-500/10 text-yellow-400' :
+  status ==='disconnected' ?'border-red-500/20 bg-red-500/10 text-red-400' :
+  'border-orange-500/20 bg-orange-500/10 text-orange-400'
+  }`}>
+  {status ==='connected'
+  ? (isSynced ?'Live' :'Syncing...')
+  : (status ==='disconnected' ?'Offline' : (showWakeMessage ?'Waking server...' :'Connecting...'))}
+  </span>
+  </div>
+  )}
  <button
  onClick={handleCopyBtn}
  className={`flex items-center gap-1.5 p-1.5 px-3 rounded-md text-sm font-medium ${copied ?'text-green-400' :'text-gray-400 hover:bg-gray-700 hover:text-gray-200'}`}
@@ -274,55 +284,119 @@ export default function CollabEditor({
  isFullScreen?: boolean;
  readOnly?: boolean;
 }) {
- const [provider, setProvider] = useState<WebsocketProvider | null>(null);
- const [doc, setDoc] = useState<Y.Doc | null>(null);
+  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+  const [doc, setDoc] = useState<Y.Doc | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
- // Doc and Provider Lifecycle
- useEffect(() => {
- const ydoc = new Y.Doc();
- const wsUrl = import.meta.env.VITE_WS_URL ||'ws://localhost:1234';
- const wsProvider = new WebsocketProvider(wsUrl,`${roomId}-${encodeURIComponent(fileName)}`, ydoc);
+  // Doc and Provider Lifecycle
+  useEffect(() => {
+  let cancelled = false;
+  let wsProvider: WebsocketProvider | null = null;
+  let ydoc: Y.Doc | null = null;
+  let authSubscription: { subscription: { unsubscribe: () => void } } | null = null;
 
- setDoc(ydoc);
- setProvider(wsProvider);
+  setAuthError(null);
 
- return () => {
- wsProvider.destroy();
- ydoc.destroy();
- setProvider(null);
- setDoc(null);
- };
- }, [roomId, fileName]);
+  const connect = async () => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
 
- const handleCopy = async (text: string) => {
- try {
- await navigator.clipboard.writeText(text);
- } catch (error) {
- console.error('Failed to copy:', error);
- }
- }
+  if (cancelled) return;
 
- // Only render editor when provider and doc are ready
- if (!provider || !doc) {
- return (
- <div className="flex items-center justify-center h-full text-gray-400 space-x-2">
- <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
- <span>Connecting to room...</span>
- </div>
- );
- }
+  if (!token) {
+  setAuthError('Sign in to collaborate');
+  return;
+  }
 
- return (
- <TiptapEditor
- provider={provider}
- doc={doc}
- initialContent={initialContent}
- roomId={roomId}
- fileName={fileName}
- onCopy={handleCopy}
- onUpdate={onUpdate}
- isFullScreen={isFullScreen}
- readOnly={readOnly}
- />
- );
+  ydoc = new Y.Doc();
+  wsProvider = new WebsocketProvider(
+  wsBaseUrl,
+  `${roomId}-${encodeURIComponent(fileName)}`,
+  ydoc,
+  {
+  params: { roomId },
+  // The access token travels in the subprotocol header so it never lands in
+  // proxy/CDN access logs.
+  protocols: ['bearer', token],
+  }
+  );
+
+  wsProvider.on('connection-close', (event: CloseEvent | null) => {
+  if (!event) return;
+  if (event.code === 4401) {
+  setAuthError('Session expired - sign in again');
+  wsProvider?.disconnect();
+  } else if (event.code === 4403) {
+  setAuthError('No access to this room');
+  wsProvider?.disconnect();
+  } else if (event.code === 4429) {
+  setAuthError('Too many attempts - try later');
+  wsProvider?.disconnect();
+  }
+  });
+
+  // Keep the handshake credential fresh: Supabase rotates the access token
+  // roughly every hour and the server re-validates it on every reconnect.
+  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+  if (event !== 'TOKEN_REFRESHED' || !session || !wsProvider) return;
+  wsProvider.protocols = ['bearer', session.access_token];
+  wsProvider.disconnect();
+  wsProvider.connect();
+  });
+  authSubscription = listener;
+
+  setDoc(ydoc);
+  setProvider(wsProvider);
+  };
+
+  connect();
+
+  return () => {
+  cancelled = true;
+  authSubscription?.subscription.unsubscribe();
+  wsProvider?.destroy();
+  ydoc?.destroy();
+  setProvider(null);
+  setDoc(null);
+  };
+  }, [roomId, fileName]);
+
+  const handleCopy = async (text: string) => {
+  try {
+  await navigator.clipboard.writeText(text);
+  } catch (error) {
+  console.error('Failed to copy:', error);
+  }
+  };
+
+  // Only render editor when provider and doc are ready
+  if (!provider || !doc) {
+  return (
+  <div className="flex items-center justify-center h-full text-gray-400 space-x-2">
+  {authError ? (
+  <span className="text-sm text-red-400">{authError}</span>
+  ) : (
+  <>
+  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+  <span>Connecting to room...</span>
+  </>
+  )}
+  </div>
+  );
+  }
+
+  return (
+  <TiptapEditor
+  provider={provider}
+  doc={doc}
+  initialContent={initialContent}
+  roomId={roomId}
+  fileName={fileName}
+  onCopy={handleCopy}
+  onUpdate={onUpdate}
+  isFullScreen={isFullScreen}
+  readOnly={readOnly}
+  authError={authError}
+  />
+  );
 }

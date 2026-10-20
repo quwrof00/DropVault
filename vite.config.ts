@@ -16,6 +16,13 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:1234',
         changeOrigin: true,
+      },
+      '/collab': {
+        target: 'ws://localhost:1234',
+        ws: true,
+        changeOrigin: true,
+        // Keep the browser origin so the backend origin allowlist still matches.
+        rewriteWsOrigin: true,
       }
     }
   }

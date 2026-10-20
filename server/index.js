@@ -7,12 +7,19 @@ import { setupWSConnection } from "@y/websocket-server/utils";
 import * as url from "url";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 
 import { initProducer, logUserActivity, publishImageProcessingEvent } from "./kafka/producer.js";
 import { initConsumer } from "./kafka/consumer.js";
 import { initImageConsumer } from "./kafka/imageConsumer.js";
 import { kafka } from "./kafka/client.js";
+import {
+  allowedOrigins,
+  extractWsToken,
+  isOriginAllowed,
+  isRoomMember,
+  supabaseAdmin as supabase,
+  verifyAccessToken,
+} from "./auth.js";
 
 async function startKafka() {
   try {
@@ -50,13 +57,21 @@ startKafka();
 console.log("Starting DropVault server...");
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// Initialize Supabase Admin Client for Auth Verification
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Only the configured frontend origins may call the API. When
+// `ALLOWED_ORIGINS` is unset every origin is accepted (local dev only).
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (allowedOrigins.length === 0 || isOriginAllowed(origin)) {
+        return callback(null, true);
+      }
+      // No CORS headers -> the browser blocks the request.
+      return callback(null, false);
+    },
+  })
+);
+app.use(express.json());
 
 // Rate Limiter configuration
 const apiLimiter = rateLimit({
@@ -72,6 +87,10 @@ app.use('/api', apiLimiter);
 
 // Supabase Auth Middleware
 const requireAuth = async (req, res, next) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Service unavailable: auth backend not configured' });
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -101,6 +120,12 @@ const imageProcessSchema = z.object({
   roomId: z.string().optional(),
   pathPrefix: z.string().min(1),
   fileName: z.string().min(1)
+});
+
+// Health check lives outside the rate limiter so orchestrators can poll it
+// without burning the API budget.
+app.get('/health', (req, res) => {
+    res.json({ status: "ok", timeStamp: new Date().toISOString(), message: "Server running" });
 });
 
 app.get('/api/health', (req, res) => {
@@ -149,17 +174,111 @@ app.post('/api/images/process', requireAuth, async (req, res) => {
 
 const server = http.createServer(app);
 
-const wss = new WebSocketServer({ server });
+// --- Collaboration WebSocket server -----------------------------------------
+// The socket is only established for authenticated users that are members of
+// the room the requested document belongs to.
 
-wss.on("connection", (conn, req) => {
-    const location = url.parse(req.url, true);
-    const docName = location.pathname.slice(1);
+const WS_PATH_PREFIX = "/collab/";
+const WS_AUTH_WINDOW_MS = 15 * 60 * 1000;
+const WS_AUTH_MAX_FAILURES = 20;
+const wsAuthFailures = new Map();
 
-    console.log("🔗 New Yjs WS connection:", docName);
+const wss = new WebSocketServer({
+  noServer: true,
+  // Echo the "bearer" subprotocol back. The access token is the second
+  // offered value and must never be reflected to the client.
+  handleProtocols: (protocols) => (protocols.has("bearer") ? "bearer" : false),
+});
 
-    setupWSConnection(conn, req, {
-        docName,
-    });
+const clientIp = (req) => req.socket?.remoteAddress || "unknown";
+
+const isAuthRateLimited = (ip) => {
+  const now = Date.now();
+  const entry = wsAuthFailures.get(ip);
+  if (!entry || entry.resetAt <= now) {
+    wsAuthFailures.set(ip, { count: 0, resetAt: now + WS_AUTH_WINDOW_MS });
+    return false;
+  }
+  return entry.count >= WS_AUTH_MAX_FAILURES;
+};
+
+const recordAuthFailure = (ip) => {
+  const now = Date.now();
+  const entry = wsAuthFailures.get(ip) || { count: 0, resetAt: now + WS_AUTH_WINDOW_MS };
+  if (entry.resetAt <= now) {
+    entry.count = 0;
+    entry.resetAt = now + WS_AUTH_WINDOW_MS;
+  }
+  entry.count += 1;
+  wsAuthFailures.set(ip, entry);
+};
+
+const decodeDocName = (pathname = "") => {
+  const withoutPrefix = pathname.startsWith(WS_PATH_PREFIX)
+    ? pathname.slice(WS_PATH_PREFIX.length)
+    : pathname.replace(/^\//, "");
+  try {
+    return decodeURIComponent(withoutPrefix);
+  } catch {
+    return withoutPrefix;
+  }
+};
+
+server.on("upgrade", (req, socket, head) => {
+  const location = url.parse(req.url || "/", true);
+  const origin = req.headers.origin;
+
+  if (!isOriginAllowed(origin)) {
+    console.warn(`🚫 Blocked WebSocket upgrade from disallowed origin: ${origin}`);
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  wss.handleUpgrade(req, socket, head, (conn) => {
+    wss.emit("connection", conn, req, location);
+  });
+});
+
+wss.on("connection", async (conn, req, location) => {
+  const docName = decodeDocName(location.pathname);
+  const roomId = typeof location.query.roomId === "string" ? location.query.roomId : null;
+  const ip = clientIp(req);
+
+  if (isAuthRateLimited(ip)) {
+    conn.close(4429, "Too many authentication attempts");
+    return;
+  }
+
+  const token = extractWsToken(req, location.query);
+  const userId = token ? await verifyAccessToken(token) : null;
+
+  if (!userId) {
+    recordAuthFailure(ip);
+    console.warn(`🚫 Rejected WebSocket connection to "${docName}" (invalid session)`);
+    conn.close(4401, "Invalid or expired session");
+    return;
+  }
+
+  if (!roomId || !docName.startsWith(`${roomId}-`)) {
+    recordAuthFailure(ip);
+    console.warn(`🚫 Rejected WebSocket connection to "${docName}" (document outside requested room)`);
+    conn.close(4403, "Document does not belong to the requested room");
+    return;
+  }
+
+  if (!(await isRoomMember(roomId, userId))) {
+    recordAuthFailure(ip);
+    console.warn(`🚫 Rejected WebSocket connection to "${docName}" (not a room member)`);
+    conn.close(4403, "Not a member of this room");
+    return;
+  }
+
+  console.log(`🔗 New Yjs WS connection: ${docName}`);
+
+  setupWSConnection(conn, req, {
+    docName,
+  });
 });
 
 const PORT = process.env.PORT || 1234;

@@ -1,5 +1,18 @@
 {
+  "build": {
+    "env": {
+      "VITE_BACKEND_URL": "https://dropvault-collab.onrender.com"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://dropvault-collab.onrender.com/api/:path*"
+    },
+    {
+      "source": "/collab/:path*",
+      "destination": "https://dropvault-collab.onrender.com/collab/:path*"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

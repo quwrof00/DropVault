@@ -6,9 +6,14 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node server/index.js
+    healthCheckPath: /health
     envVars:
       - key: PORT
         value: 10000
+      # Comma separated list of frontend origins allowed to call the API and to
+      # open a collaboration WebSocket.
+      - key: ALLOWED_ORIGINS
+        sync: false # e.g. https://dropvault-web.vercel.app,http://localhost:5173
 
   # The Frontend Static Site
   - type: static
@@ -21,5 +26,7 @@ services:
         source: /*
         destination: /index.html
     envVars:
-      - key: VITE_WS_URL
-        sync: false # You must set this to the WebSocket server URL (e.g., wss://dropvault-collab.onrender.com)
+      # Origin of the backend above. The API URL and the WebSocket URL are
+      # derived from it, so this is the only backend setting the frontend needs.
+      - key: VITE_BACKEND_URL
+        sync: false # e.g. https://dropvault-collab.onrender.com

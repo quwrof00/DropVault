@@ -1,6 +1,5 @@
 import { supabase } from "./supabase-client";
-
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+import { apiUrl } from "./backend";
 
 export async function logActivity(userId: string, action: string, targetName?: string) {
   try {
@@ -14,7 +13,7 @@ export async function logActivity(userId: string, action: string, targetName?: s
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_URL}/activity`, {
+    const response = await fetch(apiUrl("/activity"), {
       method: "POST",
       headers,
       body: JSON.stringify({ userId, action, targetName }),

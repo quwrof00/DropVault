@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase-client";
+import { apiUrl } from "../../../lib/backend";
 import {
   createClientThumbnail,
   decryptThumbnailWithDEK,
@@ -302,7 +303,6 @@ export const triggerImageProcessing = async (payload: {
   fileName: string;
   fileType: string;
 }) => {
-  const apiUrl = import.meta.env.VITE_API_URL || "/api";
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   
@@ -311,7 +311,7 @@ export const triggerImageProcessing = async (payload: {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  return fetch(`${apiUrl}/images/process`, {
+  return fetch(apiUrl("/images/process"), {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
